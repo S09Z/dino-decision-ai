@@ -11,11 +11,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | Phase | Done | Total | Status |
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
-| 1 Foundation | 12 | 22 | 1.1 and 1.5 done; 1.2 partial; 1.3–1.4 not started |
+| 1 Foundation | 16 | 22 | 1.1, 1.2 and 1.5 done (docker_config deferred); 1.3–1.4 not started |
 | 2–8 | 0 | 40 | Not started |
 
-**Next up:** Phase 1.2–1.4 (configs, GPU/MPS detection, logging).
-**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is on `claude/chrome-dino-env`, stacked on #1 (not pushed yet).
+**Next up:** Phase 1.3–1.4 (GPU detection, logging).
+**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is on `claude/config-system`, stacked on #2 (not pushed yet).
 
 ---
 
@@ -48,15 +48,15 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] `git init`, `origin` remote (github.com/S09Z/dino-decision-ai), initial commit
 
 ### 1.2 Configuration system ⭐ P1 (4–6h)
-- [x] `base_config.py`, `local_config.py` exist (partial: no MPS detection; `dqn_config`/`ppo_config` still missing)
-- [ ] Auto-sizing in `LocalConfig`: GPU flag, GPU/RAM/CPU detection, `BATCH_SIZE`, `NUM_WORKERS`, frame-cache and GPU-preprocessing flags
-- [ ] `dqn_config.py` (lr 1e-4, buffer 50k–100k, batch 32, gamma 0.99, eps 1.0→0.1, target update 1000)
-- [ ] `ppo_config.py`
-- [ ] `docker_config.py`
-- [ ] Unit tests for config
+- [x] `base_config.py`, `local_config.py` exist
+- [x] Auto-sizing in `LocalConfig`: `DEVICE` (CUDA → MPS → CPU), RAM/CPU detection, `BATCH_SIZE`, `NUM_WORKERS`, frame-cache and GPU-preprocessing flags (GPU memory moves to 1.3)
+- [x] `dqn_config.py` (lr 1e-4, buffer 50k, batch 32, gamma 0.99, eps 1.0→0.1, target update 1000); fields are SB3 `DQN` arguments
+- [x] `ppo_config.py` (lr 1e-4, batch 32, gamma 0.99, GAE λ 0.95, ent coef 0.01); fields are SB3 `PPO` arguments
+- [ ] `docker_config.py` — deferred to Phase 8.2: the Docker image has no Chrome, so the env cannot run there yet
+- [x] Unit tests for config (`tests/test_config.py`, incl. SB3 accepting the configs)
 
 ### 1.3 GPU/CPU detection ⭐ P1 (3–4h)
-- [ ] `src/performance/gpu_detector.py`: GPU (CUDA **and Apple MPS**), GPU memory, CPU cores, RAM, recommendations
+- [ ] `src/performance/gpu_detector.py`: GPU memory, recommendations; reuse `detect_device()` from `local_config.py` for CUDA/MPS
 - [ ] Human-readable summary output
 - [ ] Unit tests (mock torch/psutil)
 
