@@ -15,7 +15,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 2–8 | 0 | 40 | Not started |
 
 **Next up:** decide the environment approach (blocks 1.5), then Phase 1.2–1.4.
-**Branch:** Phase 0 work is on `claude/phase-0-hygiene` (not pushed yet).
+**Branch:** Phase 0 work is in draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`).
 
 ---
 
