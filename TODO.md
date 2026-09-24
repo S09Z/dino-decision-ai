@@ -15,7 +15,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 2–8 | 0 | 40 | Not started |
 
 **Next up:** Phase 1.3–1.4 (GPU detection, logging).
-**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is on `claude/config-system`, stacked on #2 (not pushed yet).
+**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is `claude/config-system`, stacked on #2.
 
 ---
 
