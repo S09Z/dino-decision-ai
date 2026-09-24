@@ -10,20 +10,20 @@ Hours: plan with PLAN.md's 139–182h estimate.
 
 | Phase | Done | Total | Status |
 |---|---|---|---|
-| 0 Decisions & plan hygiene | 7 | 12 | Only the environment decision, Docker (blocked) and `.env` loader (deferred) remain |
-| 1 Foundation | 6 | 22 | 1.1 setup done; 1.2 partial; 1.3–1.5 not started |
+| 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
+| 1 Foundation | 12 | 22 | 1.1 and 1.5 done; 1.2 partial; 1.3–1.4 not started |
 | 2–8 | 0 | 40 | Not started |
 
-**Next up:** decide the environment approach (blocks 1.5), then Phase 1.2–1.4.
-**Branch:** Phase 0 work is in draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`).
+**Next up:** Phase 1.2–1.4 (configs, GPU/MPS detection, logging).
+**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is on `claude/chrome-dino-env`, stacked on #1 (not pushed yet).
 
 ---
 
 ## Phase 0 — Decisions & plan hygiene (new, do first)
 
-- [ ] **Decide the game environment approach** (blocks Phase 1.5 and everything after):
-  - [ ] Option A (recommended): headless simulated Dino game, fast, deterministic, testable
-  - [ ] Option B: drive real Chrome via `mss` screen capture + input control (`pydirectinput` is Windows-only; pick a macOS input library if chosen)
+- [x] **Decide the game environment approach** → real Chrome, driven by Playwright:
+  - ~~Option A: simulated Dino game~~ (not chosen)
+  - [x] Option B: real Chrome. `chrome://dino` cannot be automated, so Chrome runs a vendored copy of Chromium's dino code (`src/environment/game/`) via Playwright, headless by default
 - [x] Fix PLAN.md: change "✅" on unbuilt features and Success Metrics to targets (⬜)
 - [x] Fix PLAN.md: reconcile 66–88h vs 139–182h estimates (now 139–182h throughout)
 - [x] Fix PLAN.md: `laya>=1.0.0` → `>=0.3.13`; verify the Laya link/homepage (real package: huggingface.co/convaiinnovations/laya)
@@ -65,14 +65,14 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [ ] Unit tests
 
 ### 1.5 Environment (8–10h)
-- [ ] `dino_env.py`: real `reset` / `step` (replace stubs); Discrete(3) actions; reward +0.1/frame, −100 on collision
-- [ ] `game_state.py`: state management, game-over detection
-- [ ] `screen_utils.py`: capture + preprocessing to 84×84 grayscale (only if Option B or for a render path)
-- [ ] Input control (per Phase 0 decision)
-- [ ] Pass `gymnasium.utils.env_checker.check_env`
-- [ ] `tests/test_environment.py`
+- [x] `dino_env.py`: real `reset` / `step`; Discrete(3) actions; reward +0.1/step, −100 on collision
+- [x] Game state and game-over detection: read from the game's JS in `chrome_game.py` (no separate `game_state.py`)
+- [x] Capture + preprocessing to 84×84 grayscale: done in-page by `ChromeGame.frame()` (~45 frames/s)
+- [x] Input control: Playwright keyboard (jump = Space, duck = hold ArrowDown)
+- [x] Pass `gymnasium.utils.env_checker.check_env`
+- [x] `tests/test_environment.py` (fake-game unit tests + one real-Chrome test)
 
-**Exit criteria:** a random-action agent runs 1,000 steps in `ChromeDinoEnv`; `make lint` and `make test` pass.
+**Exit criteria:** a random-action agent runs 1,000 steps in `ChromeDinoEnv`; `make lint` and `make test` pass. ✅ Met for 1.5: 1,000 steps in 81s (12.3 steps/s), 16 episodes, random agent scores ~42.
 
 ---
 

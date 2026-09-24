@@ -22,7 +22,7 @@ Run a single test: `poetry run pytest tests/test_example.py::test_name -v`.
 
 ## Layout
 
-- `src/environment/` Gymnasium env (`dino_env.py`)
+- `src/environment/` Gymnasium env (`dino_env.py`), Chrome driver (`chrome_game.py`), vendored game (`game/`, do not edit; see `game/SOURCE.md`)
 - `src/models/` DQN and PPO agent code (source code, not weights)
 - `src/training/` training pipelines, parallel trainer
 - `src/routing/` Laya router and agent manager
@@ -52,9 +52,10 @@ Adapted from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpa
 The project is an early scaffold (~250 lines of Python); nothing trains or plays yet. Track progress in `TODO.md`, not `PLAN.md`.
 
 - **Real code:** `src/config/base_config.py` and `local_config.py` (auto-sizes batch/workers from `torch` and `psutil`; CUDA only, no Apple MPS), and the Typer CLI shell in `src/cli/main.py` (`python -m src.cli.main --help` works).
-- **Stubs (`# TODO`/no-op):** `ChromeDinoEnv.reset/step` (returns zeros), `DQNAgent` and `PPOAgent` (`train/predict/save/load` do nothing; they wrap Stable-Baselines3 but never build a model), every CLI command body.
+- **Stubs (`# TODO`/no-op):** `DQNAgent` and `PPOAgent` (`train/predict/save/load` do nothing; they wrap Stable-Baselines3 but never build a model), every CLI command body.
 - **Empty packages (only `__init__.py`):** `training`, `routing`, `dashboard`, `cache`, `evaluation`, `monitoring`, `profiling`, `performance`, `models_mgmt`, `utils`. The UI is top-level `frontend/` (33-line `app.js`, 20-line `index.html`).
-- **Baseline checks:** `make lint` and `make test` pass (3 tests, including a Gymnasium `check_env` test). Makefile targets use `poetry run`, so no venv activation is needed. Keep both green.
+- **Environment:** `ChromeDinoEnv` runs the dino game in real Google Chrome (must be installed) via Playwright, headless by default (`render_mode="human"` shows the window). It is real time: ~12 steps/s with the default `step_seconds=0.05`, so training is wall-clock bound. Game randomness is not seedable.
+- **Baseline checks:** `make lint` and `make test` pass (6 tests; ~8s because one test drives real Chrome and is skipped if Chrome is unavailable). Makefile targets use `poetry run`, so no venv activation is needed. Keep both green.
 - **Broken targets:** `make dashboard` and `docker compose up` run `uvicorn src.dashboard.api:app`, but `src/dashboard/api.py` does not exist. The Dockerfile `CMD` runs `main.py` (the CLI), which conflicts with the compose command.
 - **Runtime:** local `.venv` is Python 3.12 (`pyproject` allows `^3.10`). All runtime and dev dependencies, including `typer`, are declared.
 - **Git:** repo initialised on `main` with `origin` → github.com/S09Z/dino-decision-ai ; `push-draft-pr` needs a feature branch off `main`.
@@ -63,6 +64,8 @@ The project is an early scaffold (~250 lines of Python); nothing trains or plays
 
 - The `laya` package on PyPI tops out at 0.3.x; do not pin it to `>=1.0.0` (PLAN.md is outdated on this). Nothing imports it yet, and PLAN.md's `Laya().classify(...)` example is unverified against the real API.
 - `ChromeDinoEnv` emits one `(84, 84, 1)` frame; stack frames with `VecFrameStack` at training time, not inside the env.
-- `pydirectinput` is Windows-only and `mss` capture is display dependent; the environment approach (simulated game vs real Chrome) is an open decision in `TODO.md` Phase 0. Keep capture/input out of unit tests and mock them.
+- `chrome://dino` cannot be automated (sandboxed error page), hence the vendored game. It is served through Playwright request routing, not `file://`, because `file://` taints the canvas and blocks pixel reads; all other network requests are blocked.
+- `mss`, `pydirectinput` (Windows-only) and `pytesseract` are still declared but unused since the Playwright approach; do not build on them.
+- Unit tests use a fake game (`FakeGame` in `tests/test_environment.py`); only one test launches Chrome. Keep it that way.
 - PLAN.md is the original roadmap (goals marked ⬜ are targets, estimate 139–182h); `TODO.md` is the status.
 - `models/` (top level) is git-ignored and mounted into Docker; `src/models/` is source. Do not confuse them.
