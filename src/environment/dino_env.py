@@ -17,7 +17,8 @@ class ChromeDinoEnv(gym.Env):
         # Action space: 0=nothing, 1=jump, 2=duck
         self.action_space = spaces.Discrete(3)
 
-        # Observation space: 84x84 grayscale image (4-frame stack)
+        # Observation space: one 84x84 grayscale frame; stack frames with a
+        # wrapper (e.g. SB3 VecFrameStack) at training time
         self.observation_space = spaces.Box(
             low=0, high=255, shape=(84, 84, 1), dtype=np.uint8
         )
@@ -25,7 +26,7 @@ class ChromeDinoEnv(gym.Env):
         self.episode_return = 0
         self.episode_length = 0
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, options=None):
         """Reset environment"""
         super().reset(seed=seed)
         # TODO: Implement reset logic
