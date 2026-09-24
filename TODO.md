@@ -4,18 +4,18 @@ Phase-by-phase task list derived from [PLAN.md](PLAN.md). Check items off as the
 Each phase ends with an **Exit criteria** line: do not start the next phase until it holds.
 
 Legend: `[x]` done · `[ ]` open · ⭐ priority (Priority 1 = do first)
-Hours: PLAN.md's phase headers total 66–88h but its own timeline table totals 139–182h. Use the larger range for planning.
+Hours: plan with PLAN.md's 139–182h estimate.
 
 ## Progress (updated 2026-09-24)
 
 | Phase | Done | Total | Status |
 |---|---|---|---|
-| 0 Decisions & plan hygiene | 0 | 11 | Not started; environment decision blocks Phase 1.5 |
+| 0 Decisions & plan hygiene | 7 | 12 | Only the environment decision, Docker (blocked) and `.env` loader (deferred) remain |
 | 1 Foundation | 6 | 22 | 1.1 setup done; 1.2 partial; 1.3–1.5 not started |
 | 2–8 | 0 | 40 | Not started |
 
-**Next up:** Phase 0 — pick the environment approach, then get `make lint` green and declare `typer`.
-**Uncommitted:** `AGENTS.md`, `CLAUDE.md`, `TODO.md`, karpathy-guidelines skill (repo has only the initial `git init` commit on `main`).
+**Next up:** decide the environment approach (blocks 1.5), then Phase 1.2–1.4.
+**Branch:** Phase 0 work is on `claude/phase-0-hygiene` (not pushed yet).
 
 ---
 
@@ -24,15 +24,15 @@ Hours: PLAN.md's phase headers total 66–88h but its own timeline table totals 
 - [ ] **Decide the game environment approach** (blocks Phase 1.5 and everything after):
   - [ ] Option A (recommended): headless simulated Dino game, fast, deterministic, testable
   - [ ] Option B: drive real Chrome via `mss` screen capture + input control (`pydirectinput` is Windows-only; pick a macOS input library if chosen)
-- [ ] Fix PLAN.md: change "✅" on unbuilt features and Success Metrics to targets (⬜)
-- [ ] Fix PLAN.md: reconcile 66–88h vs 139–182h estimates
-- [ ] Fix PLAN.md: `laya>=1.0.0` → `>=0.3.13`; verify the Laya link/homepage (real package: huggingface.co/convaiinnovations/laya)
-- [ ] Declare `typer` in `pyproject.toml` + `requirements.txt` (imported by `src/cli/main.py`; currently only installed transitively)
-- [ ] Get `make lint` green on the scaffold: black reformat 5 files, add `types-psutil` (mypy error in `local_config.py`)
-- [ ] Fix Docker: compose runs `src.dashboard.api` (missing) while Dockerfile `CMD` runs `main.py`; align once the dashboard exists
-- [ ] Remove or repurpose stray `src/frontend/` (real UI is top-level `frontend/`)
-- [ ] Add a `.env` loader dependency if config will read env vars (e.g. `python-dotenv`)
-- [ ] Fix observation space: `dino_env.py` says 4-frame stack but declares `(84, 84, 1)`; use `(84, 84, 4)` or a `FrameStack` wrapper
+- [x] Fix PLAN.md: change "✅" on unbuilt features and Success Metrics to targets (⬜)
+- [x] Fix PLAN.md: reconcile 66–88h vs 139–182h estimates (now 139–182h throughout)
+- [x] Fix PLAN.md: `laya>=1.0.0` → `>=0.3.13`; verify the Laya link/homepage (real package: huggingface.co/convaiinnovations/laya)
+- [x] Declare `typer` in `pyproject.toml` + `requirements.txt`
+- [x] Get `make lint` green: black/isort (black profile), `types-psutil`, `cpu_count() or 1`; Makefile now uses `poetry run`
+- [ ] Fix Docker: compose runs `src.dashboard.api` (missing) while Dockerfile `CMD` runs `main.py`; align once the dashboard exists — blocked on Phase 6.1
+- [x] Remove stray `src/frontend/` (real UI is top-level `frontend/`)
+- [ ] Add a `.env` loader dependency if config will read env vars (e.g. `python-dotenv`) — deferred: nothing reads env vars yet
+- [x] Fix observation space: kept one `(84, 84, 1)` frame (stack via `VecFrameStack` at training); fixed `reset(seed, options)` so `check_env` passes; added `tests/test_environment.py`
 
 **Exit criteria:** environment approach chosen; PLAN.md no longer claims unbuilt work is done; `make lint` and `make test` both pass.
 
