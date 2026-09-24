@@ -1,0 +1,75 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual env & secrets ---
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*.local
+# keep the template: .env.example
+
+# --- Poetry/UV ---
+# poetry.lock is committed (application, reproducible installs)
+
+# --- ML / training artifacts (anchored: src/models is source code) ---
+/models/
+/checkpoints/
+/datasets/
+/data/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.zip
+
+# --- Logs & metrics ---
+logs/
+*.log
+wandb/
+tensorboard/
+runs/
+mlruns/
+
+# --- Database ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Frontend ---
+frontend/node_modules/
+frontend/dist/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# --- Build ---
+dist/
+build/
+*.whl
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+.vscode/
+.venv/

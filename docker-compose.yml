@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  dino-decision-ai:
+    build: .
+    container_name: dino-decision-ai
+    volumes:
+      - ./models:/app/models
+      - ./notebooks:/app/notebooks
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - USE_GPU=false
+    command: uvicorn src.dashboard.api:app --host 0.0.0.0 --port 8000
