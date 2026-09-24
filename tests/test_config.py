@@ -59,3 +59,10 @@ def test_local_config_is_consistent():
     assert config.BATCH_SIZE == (64 if config.USE_GPU else 32)
     assert 0 <= config.NUM_WORKERS <= 4
     assert config.AVAILABLE_RAM_GB > 0
+
+
+def test_repr_shows_class_level_settings():
+    text = repr(LocalConfig())
+    assert text.startswith("LocalConfig(")
+    assert f"'DEVICE': '{LocalConfig.DEVICE}'" in text
+    assert "'GAME_SPEED': 1.0" in text  # inherited from BaseConfig
