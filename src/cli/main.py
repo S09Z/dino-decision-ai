@@ -6,15 +6,13 @@ from typing import Optional
 import typer
 
 from src.evaluation.evaluate import evaluate, report
-from src.models.dqn_agent import DQNAgent
+from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
 
 app = typer.Typer()
-
-AGENTS = {"dqn": DQNAgent}  # PPO arrives in Phase 3.2
 
 
 def _agent_class(agent: str):
@@ -33,7 +31,7 @@ def train(agent: str = "dqn", steps: int = 20_000, checkpoint_every: int = 5_000
     try:
         with MetricsDB() as db:
             monitor = TrainingMonitor(agent, db, CheckpointManager(), checkpoint_every)
-            agent_class(env).train(steps, callback=monitor)
+            agent_class(env).train(steps, callback=monitor, progress_bar=True)
             typer.echo(
                 f"Trained {agent} for {steps} steps, {monitor.episodes} episodes"
             )

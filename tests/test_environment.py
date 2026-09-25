@@ -14,9 +14,17 @@ class FakeGame:
         self.crash_after = crash_after
         self.actions = []
         self.closed = False
+        self.paused = False
 
     def restart(self):
         self.actions = []
+        self.paused = False
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
     def act(self, action):
         self.actions.append(action)
@@ -83,3 +91,20 @@ def test_random_agent_in_real_chrome():
         assert not info["crashed"]
     finally:
         env.close()
+
+
+def test_pause_and_resume_reach_the_game():
+    game = FakeGame()
+    env = ChromeDinoEnv(step_seconds=0, game=game)
+
+    env.pause()
+    assert game.paused
+    env.resume()
+    assert not game.paused
+
+
+def test_pause_before_reset_is_a_no_op():
+    env = ChromeDinoEnv(step_seconds=0)
+
+    env.pause()
+    env.resume()  # no Chrome launched

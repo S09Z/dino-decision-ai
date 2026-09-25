@@ -11,6 +11,23 @@ from src.monitoring.local_db import MetricsDB
 from src.profiling.profiler import resource_usage
 
 
+class PauseDuringUpdates(BaseCallback):
+    """Pauses the real-time game while the algorithm updates its networks
+    (between rollouts) and resumes it for the next rollout and at the end"""
+
+    def _on_rollout_end(self) -> None:
+        self.training_env.env_method("pause")
+
+    def _on_rollout_start(self) -> None:
+        self.training_env.env_method("resume")
+
+    def _on_training_end(self) -> None:
+        self.training_env.env_method("resume")
+
+    def _on_step(self) -> bool:
+        return True
+
+
 class TrainingMonitor(BaseCallback):
     """Writes every finished episode to the DB. Every `checkpoint_every` steps
     and at the end of training it also records loss, learning rate and

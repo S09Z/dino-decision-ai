@@ -72,9 +72,11 @@ class ChromeGame:
         self._page.goto(f"{GAME_ORIGIN}/index.html")
         self._page.wait_for_function("!!(window.Runner && Runner.instance_)")
         self._started = False
+        self._paused = False
 
     def restart(self) -> None:
         """Start a new run and wait until the game is playing."""
+        self._paused = False  # restart() runs the game loop again
         self.act(0)
         if not self._started:
             self._page.keyboard.press("Space")  # first run starts on a key press
@@ -98,6 +100,19 @@ class ChromeGame:
             self._ducking = False
         if action == 1:
             self._page.keyboard.press("Space")
+
+    def pause(self) -> None:
+        """Freeze the game (e.g. while PPO updates its networks)."""
+        if not self._paused:
+            self._page.evaluate("() => Runner.instance_.stop()")
+            self._paused = True
+
+    def resume(self) -> None:
+        """Continue a paused game from where it stopped."""
+        if self._paused:
+            # play() starts a new game loop, so only call it when paused
+            self._page.evaluate("() => Runner.instance_.play()")
+            self._paused = False
 
     def state(self) -> dict:
         return self._page.evaluate(_STATE_JS)
