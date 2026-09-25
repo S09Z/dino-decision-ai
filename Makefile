@@ -22,27 +22,27 @@ install:
 	uv pip install -r requirements.txt
 
 train:
-	python -m src.cli.main train --agent both
+	poetry run python -m src.cli.main train --agent both
 
 eval:
-	python -m src.cli.main eval
+	poetry run python -m src.cli.main eval
 
 profile:
-	python -m src.cli.main profile --duration 60
+	poetry run python -m src.cli.main profile --duration 60
 
 dashboard:
-	uvicorn src.dashboard.api:app --reload --host 0.0.0.0
+	poetry run uvicorn src.dashboard.api:app --reload --host 0.0.0.0
 
 test:
-	pytest tests/ -v --cov=src
+	poetry run pytest tests/ -v --cov=src
 
 lint:
-	black --check src tests
-	mypy src
+	poetry run black --check src tests
+	poetry run mypy src
 
 format:
-	black src tests
-	isort src tests
+	poetry run black src tests
+	poetry run isort src tests
 
 clean:
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true

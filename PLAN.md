@@ -38,21 +38,21 @@
 This is a **comprehensive production-grade guide** for building Chrome Dino AI with:
 
 ### What You'll Build
-- ✅ DQN & PPO agents learning to play Chrome Dinosaur game
-- ✅ Laya Model-based intelligent agent router (picks best agent in real-time)
-- ✅ Real-time dashboard showing agent decisions & performance
-- ✅ Multi-agent orchestration with parallel training
-- ✅ Professional ML infrastructure (versioning, testing, monitoring)
+- ⬜ DQN & PPO agents learning to play Chrome Dinosaur game
+- ⬜ Laya Model-based intelligent agent router (picks best agent in real-time)
+- ⬜ Real-time dashboard showing agent decisions & performance
+- ⬜ Multi-agent orchestration with parallel training
+- ⬜ Professional ML infrastructure (versioning, testing, monitoring)
 
 ### Key Features
-- ✅ Auto GPU/CPU detection & optimization
-- ✅ Frame caching (30% memory reduction)
-- ✅ Performance profiling & bottleneck identification
-- ✅ SQLite metrics database with history
-- ✅ CLI with 10+ commands for easy operation
-- ✅ Comprehensive test suite (8 test modules)
-- ✅ Model versioning & checkpoint management
-- ✅ Real-time WebSocket dashboard
+- ⬜ Auto GPU/CPU detection & optimization
+- ⬜ Frame caching (30% memory reduction)
+- ⬜ Performance profiling & bottleneck identification
+- ⬜ SQLite metrics database with history
+- ⬜ CLI with 10+ commands for easy operation
+- ⬜ Comprehensive test suite (8 test modules)
+- ⬜ Model versioning & checkpoint management
+- ⬜ Real-time WebSocket dashboard
 
 ### Core Components: 18 Total
 - **10 MUST HAVE:** Config, GPU Detection, Profiling, Logging, Checkpoint Mgmt, CLI, Testing, Caching, Metrics DB, Versioning
@@ -61,7 +61,7 @@ This is a **comprehensive production-grade guide** for building Chrome Dino AI w
 ### Timeline
 - **12-13 weeks** total (can be extended or compressed)
 - **8 phases** with clear deliverables
-- **66-88 hours** development time
+- **139-182 hours** development time
 - **Parallelizable:** Can work on multiple phases simultaneously
 
 ---
@@ -181,7 +181,7 @@ pandas>=2.0.0
 mss>=7.0.1
 pydirectinput>=1.0.4
 pytesseract>=0.3.10
-laya>=1.0.0
+laya>=0.3.13
 fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.0.0
@@ -1150,30 +1150,30 @@ Create release notes
 ## SUCCESS METRICS
 
 ### MVP Deliverables (Week 6)
-- ✅ Working Gymnasium environment
-- ✅ Both DQN and PPO training
-- ✅ Metrics database with history
-- ✅ CLI for basic commands
-- ✅ Test coverage >80%
+- ⬜ Working Gymnasium environment
+- ⬜ Both DQN and PPO training
+- ⬜ Metrics database with history
+- ⬜ CLI for basic commands
+- ⬜ Test coverage >80%
 
 ### Full Project Deliverables (Week 13)
-- ✅ All MVP features +
-- ✅ Laya-based routing
-- ✅ Real-time dashboard
-- ✅ Performance optimized (30%+ improvement)
-- ✅ Complete documentation
-- ✅ GitHub repository
-- ✅ Docker setup
-- ✅ Production-ready
+- ⬜ All MVP features +
+- ⬜ Laya-based routing
+- ⬜ Real-time dashboard
+- ⬜ Performance optimized (30%+ improvement)
+- ⬜ Complete documentation
+- ⬜ GitHub repository
+- ⬜ Docker setup
+- ⬜ Production-ready
 
 ### Specific Goals
 | Metric | Target | Success |
 |--------|--------|---------|
-| Test Coverage | >80% | ✅ |
-| Memory Optimization | -30% | ✅ |
-| Agent Training Time | <2h per 100K steps | ✅ |
-| Dashboard Latency | <100ms | ✅ |
-| Code Documentation | 100% | ✅ |
+| Test Coverage | >80% | ⬜ |
+| Memory Optimization | -30% | ⬜ |
+| Agent Training Time | <2h per 100K steps | ⬜ |
+| Dashboard Latency | <100ms | ⬜ |
+| Code Documentation | 100% | ⬜ |
 
 ---
 
@@ -1325,7 +1325,7 @@ Use case: Automatically pick best agent in real-time
 - [Gymnasium](https://gymnasium.farama.org/)
 - [Stable-Baselines3](https://stable-baselines3.readthedocs.io/)
 - [PyTorch](https://pytorch.org/)
-- [Laya Model](https://laya-ai.com/)
+- [Laya (convaiinnovations)](https://huggingface.co/convaiinnovations/laya)
 - [FastAPI](https://fastapi.tiangolo.com/)
 
 ### Learning Resources
@@ -1345,31 +1345,31 @@ Use case: Automatically pick best agent in real-time
 
 ### Start with Priority 1 (Weeks 1-2)
 ```
-✅ Config system (easy, high ROI)
-✅ GPU detection (essential)
-✅ Logging (essential)
-✅ Environment (from original plan)
+⬜ Config system (easy, high ROI)
+⬜ GPU detection (essential)
+⬜ Logging (essential)
+⬜ Environment (from original plan)
 ```
 
 ### Add Priority 2 (Weeks 3-4)
 ```
-✅ Profiling (reveals bottlenecks)
-✅ Metrics DB (enables optimization)
-✅ CLI (improves developer experience)
+⬜ Profiling (reveals bottlenecks)
+⬜ Metrics DB (enables optimization)
+⬜ CLI (improves developer experience)
 ```
 
 ### Add Priority 3 (Weeks 5-6)
 ```
-✅ Testing (ensures quality)
-✅ Caching (improves performance)
+⬜ Testing (ensures quality)
+⬜ Caching (improves performance)
 ```
 
 ### Build Interesting Parts (Weeks 7-12)
 ```
-✅ DQN/PPO training
-✅ Laya routing
-✅ Dashboard UI
-✅ Analysis & visualization
+⬜ DQN/PPO training
+⬜ Laya routing
+⬜ Dashboard UI
+⬜ Analysis & visualization
 ```
 
 ---
@@ -1398,7 +1398,7 @@ These can be added after v1.0:
 ✅ **8 phases with detailed breakdown**  
 ✅ **18 components documented**  
 ✅ **12-13 week timeline**  
-✅ **66-88 hours of work**  
+✅ **139-182 hours of work**  
 ✅ **All code examples included**  
 ✅ **All dependencies listed**  
 

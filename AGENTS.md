@@ -38,8 +38,31 @@ Run a single test: `poetry run pytest tests/test_example.py::test_name -v`.
 - Never commit `.env*` (except `.env.example`), model weights, logs, or datasets.
 - `poetry.lock` is committed. Change dependencies in `pyproject.toml` and keep `requirements.txt` in sync.
 
+## Behavioral guidelines
+
+Adapted from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) (MIT). They bias toward caution over speed; for trivial tasks, use judgment.
+
+1. **Think before coding.** State assumptions; if uncertain, ask. If several interpretations exist, present them instead of picking silently. Say so when a simpler approach exists. If something is unclear, stop and name it.
+2. **Simplicity first.** Minimum code that solves the problem: no unrequested features, no abstractions for single-use code, no speculative configurability, no error handling for impossible cases. If 200 lines could be 50, rewrite.
+3. **Surgical changes.** Touch only what the request needs; match existing style. Do not refactor or reformat adjacent code. Mention unrelated dead code, do not delete it. Remove only the imports/variables your own change orphaned. Every changed line should trace to the request.
+4. **Goal-driven execution.** Turn tasks into verifiable goals (bug fix → reproducing test first; refactor → tests pass before and after). For multi-step work, state a short plan with a verify step for each item, and loop until verified.
+
+## Current state (verified 2026-09-24)
+
+The project is an early scaffold (~250 lines of Python); nothing trains or plays yet. Track progress in `TODO.md`, not `PLAN.md`.
+
+- **Real code:** `src/config/base_config.py` and `local_config.py` (auto-sizes batch/workers from `torch` and `psutil`; CUDA only, no Apple MPS), and the Typer CLI shell in `src/cli/main.py` (`python -m src.cli.main --help` works).
+- **Stubs (`# TODO`/no-op):** `ChromeDinoEnv.reset/step` (returns zeros), `DQNAgent` and `PPOAgent` (`train/predict/save/load` do nothing; they wrap Stable-Baselines3 but never build a model), every CLI command body.
+- **Empty packages (only `__init__.py`):** `training`, `routing`, `dashboard`, `cache`, `evaluation`, `monitoring`, `profiling`, `performance`, `models_mgmt`, `utils`. The UI is top-level `frontend/` (33-line `app.js`, 20-line `index.html`).
+- **Baseline checks:** `make lint` and `make test` pass (3 tests, including a Gymnasium `check_env` test). Makefile targets use `poetry run`, so no venv activation is needed. Keep both green.
+- **Broken targets:** `make dashboard` and `docker compose up` run `uvicorn src.dashboard.api:app`, but `src/dashboard/api.py` does not exist. The Dockerfile `CMD` runs `main.py` (the CLI), which conflicts with the compose command.
+- **Runtime:** local `.venv` is Python 3.12 (`pyproject` allows `^3.10`). All runtime and dev dependencies, including `typer`, are declared.
+- **Git:** repo initialised on `main` with `origin` → github.com/S09Z/dino-decision-ai ; `push-draft-pr` needs a feature branch off `main`.
+
 ## Gotchas
 
-- The `laya` package on PyPI tops out at 0.3.x; do not pin it to `>=1.0.0` (PLAN.md is outdated on this).
-- Screen capture (`mss`) and `pydirectinput` are OS/display dependent; keep them out of unit tests and mock them.
-- Many `src/` modules are still scaffolds. Check that a module has real logic before assuming behaviour.
+- The `laya` package on PyPI tops out at 0.3.x; do not pin it to `>=1.0.0` (PLAN.md is outdated on this). Nothing imports it yet, and PLAN.md's `Laya().classify(...)` example is unverified against the real API.
+- `ChromeDinoEnv` emits one `(84, 84, 1)` frame; stack frames with `VecFrameStack` at training time, not inside the env.
+- `pydirectinput` is Windows-only and `mss` capture is display dependent; the environment approach (simulated game vs real Chrome) is an open decision in `TODO.md` Phase 0. Keep capture/input out of unit tests and mock them.
+- PLAN.md is the original roadmap (goals marked ⬜ are targets, estimate 139–182h); `TODO.md` is the status.
+- `models/` (top level) is git-ignored and mounted into Docker; `src/models/` is source. Do not confuse them.

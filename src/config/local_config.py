@@ -1,30 +1,31 @@
 """Local machine optimization configuration"""
 
-import torch
 import psutil
+import torch
+
 from .base_config import BaseConfig
 
 
 class LocalConfig(BaseConfig):
     """Configuration optimized for local machine"""
-    
+
     # Auto-detect GPU
     USE_GPU = torch.cuda.is_available()
-    
+
     # Auto-detect resources
     AVAILABLE_RAM_GB = psutil.virtual_memory().total / (1024**3)
-    CPU_CORES = psutil.cpu_count()
-    
+    CPU_CORES = psutil.cpu_count() or 1
+
     # Auto-size batch size
     BATCH_SIZE = 64 if USE_GPU else 32
-    
+
     # Auto-size workers
     NUM_WORKERS = min(CPU_CORES // 2, 4)
-    
+
     # Performance settings
     FRAME_CACHE_ENABLED = True
     GPU_PREPROCESSING = USE_GPU
-    
+
     @staticmethod
     def auto_optimize():
         """Auto-optimize configuration for local machine"""
