@@ -12,11 +12,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
-| 2 Core RL + monitoring | 2 | 13 | 2.1 built; its "better than random" check is not conclusive yet |
+| 2 Core RL + monitoring | 4 | 13 | 2.1 built ("better than random" not conclusive yet); 2.2 done |
 | 3–8 | 0 | 27 | Not started |
 
-**Next up:** Phase 2.2 (profiling).
-**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is `claude/dqn-agent`, stacked on #5.
+**Next up:** Phase 2.3 (metrics database).
+**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is `claude/dqn-agent`, stacked on #5; Phase 2.2 is `claude/profiling`, stacked on 2.1.
 
 ---
 
@@ -85,8 +85,8 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [ ] Learns measurably better than random on a short run (smoke test). Not conclusive: after 20k steps (28 min) DQN survives 74 ± 20 steps vs random 64 ± 7 (20 episodes each; reward −92.7 vs −93.7). Too short for pixel DQN; re-check with a longer run
 
 ### 2.2 Profiling & benchmarking ⭐ P2 (4–5h)
-- [ ] `src/profiling/`: FPS, memory, CPU/GPU utilisation, function timing, `@profiler.profile`
-- [ ] Baseline report
+- [x] `src/profiling/`: steps/s, memory and CPU (Python + Chrome), GPU memory, function timing, `@profiler.profile`. GPU utilisation % is not available from torch on MPS
+- [x] Baseline report: [docs/PROFILING_BASELINE.md](docs/PROFILING_BASELINE.md) (13.4 steps/s; frame capture ~19ms is the main cost after the 50ms step wait)
 
 ### 2.3 Metrics database ⭐ P2 (3–4h)
 - [ ] `src/monitoring/local_db.py` (SQLite; tables: episodes, training, performance, routing)
