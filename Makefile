@@ -22,13 +22,13 @@ install:
 	uv pip install -r requirements.txt
 
 train:
-	poetry run python -m src.cli.main train --agent both
+	poetry run python -m src.cli.main train --agent dqn
 
 eval:
 	poetry run python -m src.cli.main eval
 
 profile:
-	poetry run python -m src.cli.main profile --duration 60
+	poetry run python -m src.cli.main profile --steps 500
 
 dashboard:
 	poetry run uvicorn src.dashboard.api:app --reload --host 0.0.0.0

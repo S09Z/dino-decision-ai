@@ -28,8 +28,8 @@ Open http://localhost:8000 in your browser.
 
 ## Commands
 
-- `make train` - Train both DQN and PPO agents
-- `make eval` - Evaluate trained agents
+- `make train` - Train the DQN agent (PPO arrives in Phase 3.2)
+- `make eval` - Evaluate the best DQN checkpoint
 - `make profile` - Profile performance
 - `make dashboard` - Start real-time dashboard
 - `make test` - Run all tests

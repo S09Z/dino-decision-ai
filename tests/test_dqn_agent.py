@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from src.config.dqn_config import DQNConfig
+from src.evaluation.evaluate import RandomPolicy, evaluate
 from src.models.dqn_agent import DQNAgent
-from src.training.dqn_smoke import RandomPolicy, evaluate
 from src.training.envs import make_dino_env
 from tests.test_environment import FakeGame
 

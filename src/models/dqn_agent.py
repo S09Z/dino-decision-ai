@@ -26,10 +26,11 @@ class DQNAgent:
             "CnnPolicy", env, device=device or LocalConfig.DEVICE, **asdict(config)
         )
 
-    def train(self, total_steps):
-        """Train the agent for `total_steps` env steps"""
+    def train(self, total_steps, callback=None):
+        """Train the agent for `total_steps` env steps; `callback` is an SB3
+        callback (e.g. src.training.callbacks.TrainingMonitor)"""
         logger.info("DQN training for %d steps on %s", total_steps, self.model.device)
-        self.model.learn(total_steps)
+        self.model.learn(total_steps, callback=callback)
         logger.info("DQN training done")
 
     def predict(self, obs, deterministic=True):

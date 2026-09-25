@@ -12,11 +12,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
-| 2 Core RL + monitoring | 10 | 13 | 2.1 built ("better than random" not conclusive yet); 2.2, 2.3 and 2.4 done |
+| 2 Core RL + monitoring | 12 | 13 | Exit criteria met; only 2.1's "better than random" check is open (needs a longer run) |
 | 3–8 | 0 | 27 | Not started |
 
-**Next up:** Phase 2.5 (CLI phase 1).
-**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is `claude/model-versioning`, stacked on #8.
+**Next up:** a longer `make train` run to close 2.1's "better than random" check, then Phase 3.
+**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is `claude/cli-phase-1`, stacked on #9.
 
 ---
 
@@ -99,10 +99,10 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] Tests (`tests/test_models_mgmt.py`, incl. a real `DQNAgent` save/load)
 
 ### 2.5 CLI phase 1 ⭐ P2 (3–4h)
-- [ ] Wire `train`, `eval`, `profile` in `src/cli/main.py` to real code (currently `# TODO` stubs)
-- [ ] Register `dino-ai` script entry point in `pyproject.toml`
+- [x] Wire `train`, `eval`, `profile` in `src/cli/main.py` to real code: `train` records to `MetricsDB` and keeps the best checkpoints via `TrainingMonitor` (`src/training/callbacks.py`); `eval` loads the best checkpoint; `profile` runs the baseline. `--agent` accepts `dqn` only until PPO (3.2); `dashboard` is still a stub
+- [x] Register `dino-ai` script entry point in `pyproject.toml` (`poetry run dino-ai --help`)
 
-**Exit criteria:** `make train` trains DQN end-to-end, logs to the DB, saves a checkpoint; `make eval` loads it.
+**Exit criteria:** `make train` trains DQN end-to-end, logs to the DB, saves a checkpoint; `make eval` loads it. ✅ Met (2026-09-25): a 400-step real-Chrome run logged 7 episodes, 2 training/performance rows and 2 checkpoints; `eval` loaded the best one.
 
 ---
 
