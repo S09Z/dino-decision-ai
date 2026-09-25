@@ -12,11 +12,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
-| 2 Core RL + monitoring | 4 | 13 | 2.1 built ("better than random" not conclusive yet); 2.2 done |
+| 2 Core RL + monitoring | 7 | 13 | 2.1 built ("better than random" not conclusive yet); 2.2 and 2.3 done |
 | 3–8 | 0 | 27 | Not started |
 
-**Next up:** Phase 2.3 (metrics database).
-**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is `claude/dqn-agent`, stacked on #5; Phase 2.2 is `claude/profiling`, stacked on 2.1.
+**Next up:** Phase 2.4 (model versioning).
+**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is `claude/metrics-db`, stacked on #7.
 
 ---
 
@@ -89,9 +89,9 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] Baseline report: [docs/PROFILING_BASELINE.md](docs/PROFILING_BASELINE.md) (13.4 steps/s; frame capture ~19ms is the main cost after the 50ms step wait)
 
 ### 2.3 Metrics database ⭐ P2 (3–4h)
-- [ ] `src/monitoring/local_db.py` (SQLite; tables: episodes, training, performance, routing)
-- [ ] `MetricsDB.add_episode`, `query_recent_episodes`, etc.
-- [ ] Tests
+- [x] `src/monitoring/local_db.py` (stdlib `sqlite3`, no SQLAlchemy; tables: episodes, training, performance, routing; default file `models/logs/metrics.db`, git-ignored)
+- [x] `MetricsDB.add_episode`, `add_training`, `add_performance`, `add_routing`, `query_recent_episodes`. Nothing writes to it yet: training hooks it up in 2.5
+- [x] Tests (`tests/test_local_db.py`)
 
 ### 2.4 Model versioning ⭐ P2 (3–4h)
 - [ ] `checkpoint_manager.py` (save best, keep N, cleanup)
