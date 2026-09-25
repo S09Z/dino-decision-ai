@@ -55,6 +55,15 @@ class ChromeDinoEnv(gym.Env):
         reward = CRASH_REWARD if terminated else ALIVE_REWARD
         return self._game.frame(), reward, terminated, False, state
 
+    def pause(self):
+        """Freeze the real-time game between steps (no-op before reset)"""
+        if self._game is not None:
+            self._game.pause()
+
+    def resume(self):
+        if self._game is not None:
+            self._game.resume()
+
     def render(self):
         """Nothing to do: with render_mode="human" Chrome is visible"""
 

@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from src.cli import main as cli
 from src.config.local_config import LocalConfig
+from src.models.ppo_agent import PPOAgent
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 from src.training.envs import make_dino_env
@@ -54,8 +55,21 @@ def test_eval_without_checkpoint_fails_clearly():
     assert "run `train` first" in result.output
 
 
+def test_train_ppo(monkeypatch):
+    from tests.test_ppo_agent import SMALL
+
+    monkeypatch.setattr(PPOAgent, "default_config", staticmethod(lambda: SMALL))
+    result = runner.invoke(
+        cli.app,
+        ["train", "--agent", "ppo", "--steps", "64", "--checkpoint-every", "32"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert CheckpointManager().best("ppo") is not None
+
+
 def test_unknown_agent_is_rejected():
-    result = runner.invoke(cli.app, ["train", "--agent", "ppo"])
+    result = runner.invoke(cli.app, ["train", "--agent", "a2c"])
 
     assert result.exit_code == 1
-    assert "available: dqn" in result.output
+    assert "available: dqn, ppo" in result.output

@@ -82,4 +82,4 @@ def test_profile_inference_times_dqn_predict():
     gpu_memory_mb = profile_inference(profiler, calls=3, device="cpu")
 
     assert gpu_memory_mb >= 0
-    assert profiler.timings["DQNAgent.predict"].calls == 3
+    assert profiler.timings["SB3Agent.predict"].calls == 3

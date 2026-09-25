@@ -1,33 +1,25 @@
 """Proximal Policy Optimization (PPO) Agent"""
 
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import CallbackList
+
+from src.config.ppo_config import PPOConfig
+from src.models.sb3_agent import SB3Agent
+from src.training.callbacks import PauseDuringUpdates
 
 
-class PPOAgent:
-    """PPO agent for Chrome Dinosaur Game"""
+class PPOAgent(SB3Agent):
+    """PPO agent for Chrome Dinosaur Game.
 
-    def __init__(self, env, config=None):
-        """Initialize PPO agent"""
-        self.env = env
-        self.config = config or {}
-        self.model = None
+    Stable-Baselines3 PPO: CnnPolicy with shared-CNN actor and critic heads,
+    GAE advantages and the clipped surrogate loss, with PPOConfig values.
+    """
 
-    def train(self, total_steps):
-        """Train the agent"""
-        # TODO: Implement training loop
-        pass
+    algorithm = PPO
+    default_config = PPOConfig
 
-    def predict(self, obs):
-        """Predict action for observation"""
-        # TODO: Implement prediction
-        return 0, None
-
-    def save(self, path):
-        """Save model"""
-        # TODO: Implement saving
-        pass
-
-    def load(self, path):
-        """Load model"""
-        # TODO: Implement loading
-        pass
+    def train(self, total_steps, callback=None, progress_bar=False):
+        """Like SB3Agent.train, but the game is paused during each update
+        (~9s on MPS), otherwise the dino crashes with nobody playing"""
+        callbacks = [PauseDuringUpdates()] + ([callback] if callback else [])
+        super().train(total_steps, CallbackList(callbacks), progress_bar)

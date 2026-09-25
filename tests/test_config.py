@@ -28,6 +28,7 @@ def test_dqn_config_matches_plan():
 def test_ppo_config_matches_plan():
     assert asdict(PPOConfig()) == {
         "learning_rate": 1e-4,
+        "n_steps": 2048,
         "batch_size": 32,
         "gamma": 0.99,
         "gae_lambda": 0.95,
