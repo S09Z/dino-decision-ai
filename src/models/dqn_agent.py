@@ -1,35 +1,45 @@
 """Deep Q-Network (DQN) Agent"""
 
-import torch
-import torch.nn as nn
+from dataclasses import asdict
+
 from stable_baselines3 import DQN
+
+from src.config.dqn_config import DQNConfig
+from src.config.local_config import LocalConfig
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DQNAgent:
-    """DQN agent for Chrome Dinosaur Game"""
+    """DQN agent for Chrome Dinosaur Game.
 
-    def __init__(self, env, config=None):
-        """Initialize DQN agent"""
+    Wraps Stable-Baselines3 DQN: CnnPolicy (Nature CNN), replay buffer,
+    target network and epsilon-greedy exploration, with DQNConfig values.
+    """
+
+    def __init__(self, env, config: DQNConfig = DQNConfig(), device=None):
+        """Build the model on `env` (see src.training.envs.make_dino_env)"""
         self.env = env
-        self.config = config or {}
-        self.model = None
+        self.config = config
+        self.model = DQN(
+            "CnnPolicy", env, device=device or LocalConfig.DEVICE, **asdict(config)
+        )
 
     def train(self, total_steps):
-        """Train the agent"""
-        # TODO: Implement training loop
-        pass
+        """Train the agent for `total_steps` env steps"""
+        logger.info("DQN training for %d steps on %s", total_steps, self.model.device)
+        self.model.learn(total_steps)
+        logger.info("DQN training done")
 
-    def predict(self, obs):
-        """Predict action for observation"""
-        # TODO: Implement prediction
-        return 0, None
+    def predict(self, obs, deterministic=True):
+        """Predict (action, state) for an observation"""
+        return self.model.predict(obs, deterministic=deterministic)
 
     def save(self, path):
-        """Save model"""
-        # TODO: Implement saving
-        pass
+        """Save model (SB3 zip)"""
+        self.model.save(path)
 
     def load(self, path):
-        """Load model"""
-        # TODO: Implement loading
-        pass
+        """Load model weights and settings saved with `save`"""
+        self.model = DQN.load(path, env=self.env, device=self.model.device)
