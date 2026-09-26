@@ -1,18 +1,33 @@
 """Chrome Dinosaur Game Gymnasium Environment"""
 
+import time
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
+from .chrome_game import ChromeGame
+
+ALIVE_REWARD = 0.1
+CRASH_REWARD = -100.0
+
 
 class ChromeDinoEnv(gym.Env):
-    """Gymnasium environment for Chrome Dinosaur Game"""
+    """Gymnasium environment for Chrome Dinosaur Game.
+
+    The game runs in real Chrome (see chrome_game.py) in real time, so each
+    step waits `step_seconds` of game time. render_mode="human" shows the
+    Chrome window instead of running headless.
+    """
 
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self):
-        """Initialize environment"""
+    def __init__(self, render_mode=None, step_seconds=0.05, game=None):
+        """Initialize environment; `game` replaces Chrome (used by tests)"""
         super().__init__()
+        self.render_mode = render_mode
+        self.step_seconds = step_seconds
+        self._game = game
 
         # Action space: 0=nothing, 1=jump, 2=duck
         self.action_space = spaces.Discrete(3)
@@ -23,27 +38,27 @@ class ChromeDinoEnv(gym.Env):
             low=0, high=255, shape=(84, 84, 1), dtype=np.uint8
         )
 
-        self.episode_return = 0
-        self.episode_length = 0
-
     def reset(self, seed=None, options=None):
-        """Reset environment"""
+        """Start a new run; launches Chrome on first use"""
         super().reset(seed=seed)
-        # TODO: Implement reset logic
-        obs = np.zeros((84, 84, 1), dtype=np.uint8)
-        return obs, {}
+        if self._game is None:
+            self._game = ChromeGame(headless=self.render_mode != "human")
+        self._game.restart()
+        return self._game.frame(), self._game.state()
 
     def step(self, action):
         """Execute action and return (obs, reward, terminated, truncated, info)"""
-        # TODO: Implement step logic
-        obs = np.zeros((84, 84, 1), dtype=np.uint8)
-        reward = 0.0
-        terminated = False
-        truncated = False
-        info = {}
-
-        return obs, reward, terminated, truncated, info
+        self._game.act(int(action))
+        time.sleep(self.step_seconds)
+        state = self._game.state()
+        terminated = bool(state["crashed"])
+        reward = CRASH_REWARD if terminated else ALIVE_REWARD
+        return self._game.frame(), reward, terminated, False, state
 
     def render(self):
-        """Render environment"""
-        pass
+        """Nothing to do: with render_mode="human" Chrome is visible"""
+
+    def close(self):
+        if self._game is not None:
+            self._game.close()
+            self._game = None
