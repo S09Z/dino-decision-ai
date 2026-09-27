@@ -17,20 +17,24 @@ class ChromeDinoEnv(gym.Env):
 
     The game runs in real Chrome (see chrome_game.py) in real time, so each
     step waits `step_seconds` of game time. render_mode="human" shows the
-    Chrome window instead of running headless.
+    Chrome window instead of running headless. `n_actions=2` drops duck
+    (0 = nothing, 1 = jump); `crop` is passed on to ChromeGame.
     """
 
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, render_mode=None, step_seconds=0.05, game=None):
+    def __init__(
+        self, render_mode=None, step_seconds=0.05, game=None, n_actions=3, crop=None
+    ):
         """Initialize environment; `game` replaces Chrome (used by tests)"""
         super().__init__()
         self.render_mode = render_mode
         self.step_seconds = step_seconds
+        self.crop = crop
         self._game = game
 
-        # Action space: 0=nothing, 1=jump, 2=duck
-        self.action_space = spaces.Discrete(3)
+        # Action space: 0=nothing, 1=jump, 2=duck (n_actions=2: no duck)
+        self.action_space = spaces.Discrete(n_actions)
 
         # Observation space: one 84x84 grayscale frame; stack frames with a
         # wrapper (e.g. SB3 VecFrameStack) at training time
@@ -42,7 +46,9 @@ class ChromeDinoEnv(gym.Env):
         """Start a new run; launches Chrome on first use"""
         super().reset(seed=seed)
         if self._game is None:
-            self._game = ChromeGame(headless=self.render_mode != "human")
+            self._game = ChromeGame(
+                headless=self.render_mode != "human", crop=self.crop
+            )
         self._game.restart()
         return self._game.frame(), self._game.state()
 
