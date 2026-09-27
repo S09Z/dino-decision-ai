@@ -35,13 +35,19 @@ class SB3Agent:
         return self.algorithm.__name__
 
     def train(self, total_steps, callback=None, progress_bar=False):
-        """Train the agent for `total_steps` env steps; `callback` is an SB3
-        callback (e.g. src.training.callbacks.TrainingMonitor); `progress_bar`
-        shows steps done and time left"""
+        """Train the agent for `total_steps` more env steps; `callback` is an
+        SB3 callback (e.g. src.training.callbacks.TrainingMonitor);
+        `progress_bar` shows steps done and time left. The step count carries
+        on from a resumed model, and so do schedules such as DQN's epsilon."""
         logger.info(
             "%s training for %d steps on %s", self.name, total_steps, self.model.device
         )
-        self.model.learn(total_steps, callback=callback, progress_bar=progress_bar)
+        self.model.learn(
+            total_steps,
+            callback=callback,
+            progress_bar=progress_bar,
+            reset_num_timesteps=False,
+        )
         logger.info("%s training done", self.name)
 
     def predict(self, obs, deterministic=True):
@@ -55,3 +61,10 @@ class SB3Agent:
     def load(self, path):
         """Load model weights and settings saved with `save`"""
         self.model = self.algorithm.load(path, env=self.env, device=self.model.device)
+
+    def resume(self, latest):
+        """Continue an interrupted run from a CheckpointManager `Latest`: its
+        weights, step count and, for DQN, its replay buffer"""
+        self.load(latest.path)
+        if latest.buffer:
+            self.model.load_replay_buffer(latest.buffer)

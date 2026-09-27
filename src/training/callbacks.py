@@ -31,8 +31,10 @@ class PauseDuringUpdates(BaseCallback):
 class TrainingMonitor(BaseCallback):
     """Writes every finished episode to the DB. Every `checkpoint_every` steps
     and at the end of training it also records loss, learning rate and
-    performance, and saves a checkpoint scored by the mean reward of the last
-    `window` episodes (CheckpointManager keeps only the best)."""
+    performance, saves a checkpoint scored by the mean reward of the last
+    `window` episodes (CheckpointManager keeps only the best) and overwrites
+    the latest checkpoint, which `train --resume` continues from. `episodes`
+    is the count so far when resuming, so numbering carries on."""
 
     def __init__(
         self,
@@ -41,13 +43,14 @@ class TrainingMonitor(BaseCallback):
         checkpoints: CheckpointManager,
         checkpoint_every: int = 5_000,
         window: int = 10,
+        episodes: int = 0,
     ):
         super().__init__()
         self.name = name
         self.db = db
         self.checkpoints = checkpoints
         self.checkpoint_every = checkpoint_every
-        self.episodes = 0
+        self.episodes = episodes
         self.recent_rewards: deque[float] = deque(maxlen=window)
         self._last_step = 0
         self._last_time = time.perf_counter()
@@ -95,5 +98,14 @@ class TrainingMonitor(BaseCallback):
                 step=self.num_timesteps,
                 reward=float(np.mean(self.recent_rewards)),
             )
+        # DQN's replay buffer takes seconds to write: pause the real-time game
+        # meanwhile, or the dino crashes with nobody playing
+        self.training_env.env_method("pause")
+        try:
+            self.checkpoints.save_latest(
+                self.model, self.name, self.num_timesteps, self.episodes
+            )
+        finally:
+            self.training_env.env_method("resume")
         self._last_step = self.num_timesteps
         self._last_time = time.perf_counter()

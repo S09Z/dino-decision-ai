@@ -64,6 +64,12 @@ def test_train_command_runs_one_agent_without_progress_bar():
     ]
 
 
+def test_train_command_passes_resume():
+    command = train_command("dqn", steps=100, checkpoint_every=50, resume=True)
+
+    assert command[-1] == "--resume"
+
+
 def test_train_parallel_launches_every_agent_and_returns_exit_codes():
     launched = []
 
@@ -123,20 +129,30 @@ def test_ram_warning_only_when_free_ram_is_short():
 def test_cli_train_all_parallel(monkeypatch):
     calls = []
     monkeypatch.setattr(
-        cli, "train_parallel", lambda *args: calls.append(args) or {"dqn": 0, "ppo": 0}
+        cli,
+        "train_parallel",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or {"dqn": 0, "ppo": 0},
     )
 
     result = CliRunner().invoke(
         cli.app, ["train", "--all", "--parallel", "--steps", "10"]
     )
+    resumed = CliRunner().invoke(
+        cli.app, ["train", "--all", "--parallel", "--steps", "10", "--resume"]
+    )
 
-    assert result.exit_code == 0, result.output
-    assert calls == [(["dqn", "ppo"], 10, 5_000)]
+    assert result.exit_code == resumed.exit_code == 0, result.output
+    assert calls == [
+        ((["dqn", "ppo"], 10, 5_000), {"resume": False}),
+        ((["dqn", "ppo"], 10, 5_000), {"resume": True}),
+    ]
     assert "dqn: done" in result.output
 
 
 def test_cli_parallel_reports_failures_and_rejects_profile(monkeypatch):
-    monkeypatch.setattr(cli, "train_parallel", lambda *args: {"dqn": 0, "ppo": 2})
+    monkeypatch.setattr(
+        cli, "train_parallel", lambda *args, **kwargs: {"dqn": 0, "ppo": 2}
+    )
     runner = CliRunner()
 
     failed = runner.invoke(cli.app, ["train", "--all", "--parallel"])

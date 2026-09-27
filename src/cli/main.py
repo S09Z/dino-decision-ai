@@ -8,7 +8,7 @@ import typer
 
 from src.evaluation.evaluate import RandomPolicy, evaluate, evaluate_routed, report
 from src.models import AGENTS
-from src.models_mgmt.checkpoint_manager import CheckpointManager
+from src.models_mgmt.checkpoint_manager import CheckpointManager, Latest
 from src.models_mgmt.model_registry import ModelRegistry
 from src.monitoring.local_db import MetricsDB
 from src.profiling.baseline import instrument
@@ -32,20 +32,46 @@ def _check_agent(agent: str) -> str:
     return agent
 
 
+def _resume(model, name: str, latest: Optional[Latest], resume: bool) -> int:
+    """Load `latest` into `model` when resuming; returns the episodes done"""
+    if not resume:
+        if latest:
+            typer.echo(
+                f"Starting {name} from step 0; its latest checkpoint (step"
+                f" {latest.step}) will be overwritten. Use --resume to continue it."
+            )
+        return 0
+    if latest is None:
+        typer.echo(f"No latest checkpoint for {name}; starting from step 0")
+        return 0
+    model.resume(latest)
+    typer.echo(
+        f"Resuming {name} from step {latest.step} ({latest.episodes} episodes,"
+        f" saved {latest.timestamp})"
+    )
+    return latest.episodes
+
+
 @app.command()
 def train(
     agent: str = "dqn",
     all_agents: bool = typer.Option(False, "--all", help="Train every agent in turn"),
-    steps: int = 20_000,
+    steps: int = typer.Option(
+        20_000, help="Steps per agent; with --resume, including those already done"
+    ),
     checkpoint_every: int = 5_000,
     profile: bool = typer.Option(False, help="Print per-call timings at the end"),
     parallel: bool = typer.Option(
         False, help="With --all: train agents at once, each with its own Chrome"
     ),
+    resume: bool = typer.Option(
+        False, help="Continue from the latest checkpoint (e.g. after a power cut)"
+    ),
     progress_bar: bool = typer.Option(True, "--progress-bar/--no-progress-bar"),
 ):
     """Train agents, recording episodes to the metrics DB and keeping the
-    best checkpoints (real time: ~12 steps/s per agent)"""
+    best checkpoints (real time: ~12 steps/s per agent). Every checkpoint
+    also saves the latest state, which --resume continues from."""
     names = list(AGENTS) if all_agents else [_check_agent(agent)]
     if parallel and len(names) > 1:
         if profile:
@@ -54,7 +80,7 @@ def train(
         warning = ram_warning(names, psutil.virtual_memory().available / GB)
         if warning:
             typer.echo(warning, err=True)
-        codes = train_parallel(names, steps, checkpoint_every)
+        codes = train_parallel(names, steps, checkpoint_every, resume=resume)
         for name, code in codes.items():
             typer.echo(f"{name}: " + ("done" if code == 0 else f"failed (exit {code})"))
         if any(codes.values()):
@@ -67,11 +93,17 @@ def train(
             instrument(env.get_attr("unwrapped")[0], profiler)
         with MetricsDB() as db:
             for name in names:
-                monitor = TrainingMonitor(
-                    name, db, CheckpointManager(), checkpoint_every
-                )
+                checkpoints = CheckpointManager()
                 model = AGENTS[name](env)
-                model.train(steps, callback=monitor, progress_bar=progress_bar)
+                episodes = _resume(model, name, checkpoints.latest(name), resume)
+                remaining = steps - model.model.num_timesteps
+                if remaining <= 0:
+                    typer.echo(f"{name} already trained for {steps} steps")
+                    continue
+                monitor = TrainingMonitor(
+                    name, db, checkpoints, checkpoint_every, episodes=episodes
+                )
+                model.train(remaining, callback=monitor, progress_bar=progress_bar)
                 # actual steps: SB3 rounds up (DQN to train_freq, PPO to n_steps)
                 typer.echo(
                     f"Trained {name} for {model.model.num_timesteps} steps,"
