@@ -22,6 +22,21 @@ def evaluate(policy, env, episodes: int) -> tuple[list[float], list[int]]:
     return list(rewards), list(lengths)  # type: ignore[arg-type]
 
 
+def evaluate_routed(manager, env, episodes: int) -> tuple[list[float], list[int]]:
+    """Like evaluate(), with an AgentManager choosing who plays each stretch"""
+    rewards: list[float] = []
+    lengths: list[int] = []
+    obs = env.reset()
+    while len(rewards) < episodes:
+        action, _ = manager.get_action(obs)
+        obs, _, dones, infos = env.step(action)
+        manager.observe(infos[0], bool(dones[0]))
+        if dones[0]:
+            rewards.append(float(infos[0]["episode"]["r"]))  # from Monitor
+            lengths.append(int(infos[0]["episode"]["l"]))
+    return rewards, lengths
+
+
 def report(name: str, rewards: list[float], lengths: list[int]) -> str:
     return (
         f"{name}: reward {np.mean(rewards):.1f} ± {np.std(rewards):.1f}, "

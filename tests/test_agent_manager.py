@@ -147,3 +147,93 @@ def test_cli_play_without_checkpoints_fails_clearly(tmp_path, monkeypatch):
 
     assert result.exit_code == 1
     assert "run `train --all` first" in result.output
+
+
+def test_score_averages_only_the_last_window_stretches():
+    manager = AgentManager({"dqn": FakeAgent(1)}, LayaRouter(), window=2)
+
+    assert manager.score("dqn", "EASY") == 0  # nothing played yet
+    for score in (100, 200, 400):
+        play_episode(manager, score)
+
+    assert manager.score("dqn", "EASY") == 300  # 200 and 400; 100 dropped
+
+
+def test_scores_are_kept_per_difficulty():
+    """PPO is better at EASY, DQN at HARD: each plays where it is better"""
+    manager = make_manager()
+    for agent, easy, hard in (("dqn", 100, 900), ("ppo", 300, 50)):
+        assert manager.get_action(None)[1] == agent  # exploring EASY
+        manager.observe({"score": easy, "speed": HARD_SPEED}, done=False)
+        assert manager.current == agent  # also untried at HARD: explores
+        manager.observe({"score": easy + hard, "speed": HARD_SPEED}, done=True)
+
+    assert manager.score("ppo", "EASY") == 300
+    assert manager.score("dqn", "HARD") == 900
+    assert manager.get_action(None)[1] == "ppo"  # EASY
+    manager.observe({"score": 10, "speed": HARD_SPEED}, done=False)
+    assert manager.current == "dqn"  # HARD
+
+
+def test_router_switches_back_when_the_leader_gets_worse(db):
+    manager = AgentManager(
+        {"dqn": FakeAgent(1), "ppo": FakeAgent(2)}, LayaRouter(), db, window=1
+    )
+    play_episode(manager, score=100)  # dqn explores
+    play_episode(manager, score=300)  # ppo explores
+    play_episode(manager, score=50)  # ppo leads, plays, and scores less
+
+    assert manager.get_action(None)[1] == "dqn"
+    assert manager.switches == 2  # dqn -> ppo, ppo -> dqn
+
+
+def test_keeping_the_same_agent_is_not_a_switch():
+    manager = make_manager()
+    play_episode(manager, score=300)  # dqn explores
+    play_episode(manager, score=100)  # ppo explores (1 switch)
+    for _ in range(3):
+        play_episode(manager, score=300)  # dqn leads and keeps playing
+
+    assert manager.current == "dqn"
+    assert manager.switches == 2
+
+
+def test_every_decision_is_logged_once_with_its_difficulty(db):
+    manager = make_manager(db)
+    manager.get_action(None)  # decision 1: EASY
+    manager.observe({"score": 50, "speed": 9.0}, done=False)  # 2: MEDIUM
+    manager.observe({"score": 90, "speed": HARD_SPEED}, done=False)  # 3: HARD
+    manager.observe({"score": 95, "speed": HARD_SPEED}, done=False)  # same
+    manager.observe({"score": 120, "speed": HARD_SPEED}, done=True)  # 4: EASY
+
+    rows = db.history("routing")
+    assert [r["difficulty"] for r in rows] == ["EASY", "MEDIUM", "HARD", "EASY"]
+    assert all(r["agent"] in ("dqn", "ppo") for r in rows)
+    assert all(0.5 <= r["confidence"] <= 1.0 for r in rows)
+
+
+def test_failing_classifier_mid_play_falls_back_and_is_logged(db):
+    def broken(scores, difficulty):
+        raise RuntimeError("out of memory")
+
+    manager = AgentManager(
+        {"dqn": FakeAgent(1), "ppo": FakeAgent(2)},
+        LayaRouter(classifier=broken),
+        db,
+        min_tries=1,
+    )
+    play_episode(manager, score=100)
+    play_episode(manager, score=300)
+
+    assert manager.get_action(None)[1] == "ppo"
+    assert db.history("routing")[-1]["source"] == "heuristic"
+
+
+def test_eval_compare_adds_routed_play(trained):
+    result = CliRunner().invoke(cli.app, ["eval", "--compare", "--episodes", "4"])
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()[-4:]
+    assert [line.split(":")[0] for line in lines] == ["random", "dqn", "ppo", "routed"]
+    assert lines[3].startswith("routed: reward")
+    assert lines[3].endswith("length 10 ± 0 steps, 4 switches")  # FakeGame(10)

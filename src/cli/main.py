@@ -6,7 +6,7 @@ from typing import Optional
 import psutil
 import typer
 
-from src.evaluation.evaluate import RandomPolicy, evaluate, report
+from src.evaluation.evaluate import RandomPolicy, evaluate, evaluate_routed, report
 from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.models_mgmt.model_registry import ModelRegistry
@@ -88,13 +88,15 @@ def eval(
     agent: str = "dqn",
     episodes: int = 20,
     compare: bool = typer.Option(
-        False, help="Evaluate random and every agent's best checkpoint"
+        False,
+        help="Evaluate random, every agent's best checkpoint and routed play",
     ),
 ):
     """Evaluate the agent's best checkpoint"""
     names = list(AGENTS) if compare else [_check_agent(agent)]
     env = make_dino_env()
     results = []
+    loaded = {}
     try:
         if compare:
             results.append(
@@ -114,6 +116,14 @@ def eval(
                 f"Loaded {best.path} (step {best.step}, reward {best.reward:.1f})"
             )
             results.append(report(name, *evaluate(model.model, env, episodes)))
+            loaded[name] = model
+        if compare and len(loaded) == len(AGENTS):
+            # includes the router's first tries of each agent (explore)
+            manager = AgentManager(loaded, LayaRouter())
+            results.append(
+                report("routed", *evaluate_routed(manager, env, episodes))
+                + f", {manager.switches} switches"
+            )
     finally:
         env.close()
     typer.echo("\n".join(results))
