@@ -6,6 +6,8 @@ Autonomous Multi-Agent RL System for Google Chrome Dinosaur Game with Laya Route
 
 On Windows 11 (no `make`, CUDA torch needs one extra step), follow [docs/WINDOWS.md](docs/WINDOWS.md).
 
+How the commands fit together (setup → train → check results): [docs/WORKFLOW.mermaid](docs/WORKFLOW.mermaid).
+
 ### 1. Setup
 ```bash
 make setup

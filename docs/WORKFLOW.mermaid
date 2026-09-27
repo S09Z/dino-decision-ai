@@ -1,0 +1,35 @@
+%% How the commands fit together. Run each as `make <cmd>` (macOS/Linux),
+%% `.\make.ps1 <cmd>` (Windows) or `poetry run dino-ai <cmd>` (train/eval/inspect/clean/profile).
+flowchart TD
+    subgraph S1["1. Set up (once per machine)"]
+        setup["setup<br/>install dependencies"]
+        cuda["cuda<br/>Windows + NVIDIA only:<br/>use the GPU"]
+        test["test / lint<br/>check everything works"]
+        setup --> cuda --> test
+        setup --> test
+    end
+
+    subgraph S2["2. Train (hours, real Chrome)"]
+        train["train --agent dqn | ppo<br/>or train --all"]
+    end
+
+    subgraph S3["3. Check results"]
+        eval["eval --compare<br/>best models vs random"]
+        inspect["inspect<br/>what was saved"]
+    end
+
+    subgraph S4["4. Housekeeping"]
+        clean["clean --keep 3<br/>delete weaker checkpoints"]
+        profile["profile<br/>speed report"]
+    end
+
+    ckpt[("models/checkpoints/<br/>best models")]
+    db[("models/logs/metrics.db<br/>episodes, loss, speed")]
+
+    test --> train
+    train --> ckpt
+    train --> db
+    ckpt --> eval
+    ckpt --> inspect
+    db --> inspect
+    ckpt --> clean
