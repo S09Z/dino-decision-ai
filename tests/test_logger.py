@@ -18,15 +18,22 @@ from src.utils.logger import (
 
 @pytest.fixture(autouse=True)
 def isolated_logging(tmp_path, monkeypatch):
-    """Log into tmp_path and remove our handlers afterwards"""
+    """Start with logging not set up (other modules call get_logger at import
+    time), log into tmp_path, and restore the previous handlers afterwards"""
     monkeypatch.setattr(logger_module, "LOG_DIR", tmp_path)
     root = logging.getLogger()
     level = root.level
+    previous = list(logger_module._handlers)
+    for handler in previous:
+        root.removeHandler(handler)
+    logger_module._handlers.clear()
     yield
     for handler in logger_module._handlers:
         root.removeHandler(handler)
         handler.close()
-    logger_module._handlers.clear()
+    logger_module._handlers[:] = previous
+    for handler in previous:
+        root.addHandler(handler)
     root.setLevel(level)
 
 

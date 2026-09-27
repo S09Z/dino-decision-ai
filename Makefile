@@ -34,7 +34,7 @@ dashboard:
 	poetry run uvicorn src.dashboard.api:app --reload --host 0.0.0.0
 
 test:
-	poetry run pytest tests/ -v --cov=src
+	poetry run pytest tests/ -v --cov=src --cov-fail-under=80
 
 lint:
 	poetry run black --check src tests

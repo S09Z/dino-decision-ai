@@ -13,7 +13,7 @@ make train      # python -m src.cli.main train --agent dqn (also: poetry run din
 make eval       # python -m src.cli.main eval
 make profile    # python -m src.cli.main profile --steps 500
 make dashboard  # uvicorn src.dashboard.api:app --reload (http://localhost:8000)
-make test       # pytest tests/ -v --cov=src
+make test       # pytest tests/ -v --cov=src --cov-fail-under=80
 make lint       # black --check + mypy (src, tests)
 make format     # black + isort (src, tests)
 ```
@@ -55,7 +55,7 @@ The project is an early scaffold (~250 lines of Python); nothing trains or plays
 - **Stubs (`# TODO`/no-op):** the CLI `dashboard` command.
 - **Empty packages (only `__init__.py`):** `routing`, `dashboard`, `cache`. The UI is top-level `frontend/` (33-line `app.js`, 20-line `index.html`).
 - **Environment:** `ChromeDinoEnv` runs the dino game in real Google Chrome (must be installed) via Playwright, headless by default (`render_mode="human"` shows the window). It is real time: ~12 steps/s with the default `step_seconds=0.05`, so training is wall-clock bound. Game randomness is not seedable.
-- **Baseline checks:** `make lint` and `make test` pass (71 tests; ~18s because one test drives real Chrome and is skipped if Chrome is unavailable). Makefile targets use `poetry run`, so no venv activation is needed. Keep both green.
+- **Baseline checks:** `make lint` and `make test` pass (79 tests, 94% coverage, gate at 80%; ~30s because one test drives real Chrome and is skipped if Chrome is unavailable). Makefile targets use `poetry run`, so no venv activation is needed. Keep both green.
 - **Broken targets:** `make dashboard` and `docker compose up` run `uvicorn src.dashboard.api:app`, but `src/dashboard/api.py` does not exist. The Dockerfile `CMD` runs `main.py` (the CLI), which conflicts with the compose command.
 - **Runtime:** local `.venv` is Python 3.12 (`pyproject` allows `^3.10`). All runtime and dev dependencies, including `typer`, are declared.
 - **Git:** repo initialised on `main` with `origin` → github.com/S09Z/dino-decision-ai ; `push-draft-pr` needs a feature branch off `main`.
@@ -67,6 +67,6 @@ The project is an early scaffold (~250 lines of Python); nothing trains or plays
 - `ChromeDinoEnv` emits one `(84, 84, 1)` frame; stack frames with `VecFrameStack` at training time, not inside the env.
 - `chrome://dino` cannot be automated (sandboxed error page), hence the vendored game. It is served through Playwright request routing, not `file://`, because `file://` taints the canvas and blocks pixel reads; all other network requests are blocked.
 - `mss`, `pydirectinput` (Windows-only) and `pytesseract` are still declared but unused since the Playwright approach; do not build on them.
-- Unit tests use a fake game (`FakeGame` in `tests/test_environment.py`); only one test launches Chrome. Keep it that way.
+- Unit tests use a fake game (`FakeGame` in `tests/test_environment.py`) or a fake Playwright page (`tests/test_chrome_game.py`); only one test launches Chrome. Keep it that way.
 - PLAN.md is the original roadmap (goals marked ⬜ are targets, estimate 139–182h); `TODO.md` is the status.
 - `models/` (top level) is git-ignored and mounted into Docker; `src/models/` is source. Do not confuse them.
