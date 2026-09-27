@@ -72,6 +72,18 @@ def test_index_survives_a_new_manager(manager):
     assert again.best("dqn").step == 7
 
 
+def test_prune_deletes_all_but_the_best(manager):
+    manager.save(FakeAgent(), "dqn", step=1, reward=-10.0)
+    manager.save(FakeAgent(), "dqn", step=2, reward=-20.0)
+    manager.save(FakeAgent(), "ppo", step=1, reward=-5.0)
+
+    removed = manager.prune("dqn", keep=1)
+
+    assert [c.step for c in removed] == [2]
+    assert zips(manager.directory) == ["dqn_step1.zip", "ppo_step1.zip"]
+    assert manager.best("ppo").step == 1  # other agents untouched
+
+
 def test_load_best_without_checkpoints_raises(manager):
     with pytest.raises(FileNotFoundError):
         manager.load_best(FakeAgent(), "dqn")
