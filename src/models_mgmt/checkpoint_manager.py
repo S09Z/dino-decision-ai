@@ -38,10 +38,14 @@ class CheckpointManager:
     def _load_index(self) -> list[Checkpoint]:
         if not self._index.exists():
             return []
-        return [Checkpoint(**c) for c in json.loads(self._index.read_text())]
+        return [
+            Checkpoint(**c) for c in json.loads(self._index.read_text(encoding="utf-8"))
+        ]
 
     def _write_index(self, checkpoints: list[Checkpoint]) -> None:
-        self._index.write_text(json.dumps([asdict(c) for c in checkpoints], indent=2))
+        self._index.write_text(
+            json.dumps([asdict(c) for c in checkpoints], indent=2), encoding="utf-8"
+        )
 
     def checkpoints(self, name: str) -> list[Checkpoint]:
         """This agent's kept checkpoints, best first"""
@@ -56,7 +60,11 @@ class CheckpointManager:
         path = self.directory / f"{name}_step{step}.zip"
         agent.save(path)
         checkpoint = Checkpoint(
-            name, step, reward, str(path), datetime.now().isoformat(timespec="seconds")
+            name,
+            step,
+            reward,
+            path.as_posix(),  # forward slashes work on Windows too
+            datetime.now().isoformat(timespec="seconds"),
         )
         self._write_index(self._load_index() + [checkpoint])
         self.prune(name, self.keep_best_n)

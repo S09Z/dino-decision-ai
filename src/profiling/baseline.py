@@ -98,7 +98,7 @@ def main(steps: int = 500, out: Optional[Path] = None):
     )
     print(report)
     if out is not None:
-        out.write_text(report)
+        out.write_text(report, encoding="utf-8")
 
 
 if __name__ == "__main__":

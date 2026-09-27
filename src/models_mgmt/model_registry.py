@@ -60,7 +60,10 @@ class ModelRegistry:
         """Registered versions, oldest first, optionally for one agent"""
         if not self._file.exists():
             return []
-        entries = [ModelVersion(**v) for v in json.loads(self._file.read_text())]
+        entries = [
+            ModelVersion(**v)
+            for v in json.loads(self._file.read_text(encoding="utf-8"))
+        ]
         entries.sort(key=lambda v: _key(v.version))
         return [v for v in entries if agent is None or v.agent == agent]
 
@@ -91,13 +94,15 @@ class ModelRegistry:
         entry = ModelVersion(
             version,
             agent,
-            str(destination),
+            destination.as_posix(),  # forward slashes work on Windows too
             metrics,
             notes,
             datetime.now().isoformat(timespec="seconds"),
         )
         entries = self.versions() + [entry]
-        self._file.write_text(json.dumps([asdict(v) for v in entries], indent=2))
+        self._file.write_text(
+            json.dumps([asdict(v) for v in entries], indent=2), encoding="utf-8"
+        )
         return entry
 
     def compare(self, old: str, new: str) -> dict[str, tuple[float, float, float]]:
