@@ -27,22 +27,30 @@ Copy-Item .env.example .env.local
 
 ## 3. Use the NVIDIA GPU (CUDA)
 
-`poetry install` puts the CPU-only torch on Windows. With an NVIDIA GPU and a current driver,
-swap in the CUDA build of the same versions (`torch` 2.14.0, `torchvision` 0.29.0 in `poetry.lock`).
-Pick the CUDA tag (`cu126`, `cu128`, ...) that pytorch.org's "Get Started" page lists for your
-driver:
+`poetry install` puts the CPU-only torch on Windows. Swap in the CUDA build of the same versions
+(`torch` 2.14.0, `torchvision` 0.29.0 in `poetry.lock`).
+
+For the training machine (**RTX 5070, 12GB**) use **`cu130`**. RTX 50-series (Blackwell, `sm_120`)
+needs a CUDA 12.8+ build; for torch 2.14.0 on Windows, pytorch.org has `cu126` (too old for
+RTX 50), `cu130` and `cu132` (checked 2026-09-27). Update the NVIDIA driver first
+(CUDA 13 needs driver 580 or newer; GeForce Game Ready/Studio from nvidia.com or the NVIDIA app).
 
 ```powershell
-poetry run pip install --force-reinstall torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu128
+poetry run pip install --force-reinstall --no-deps torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu130
 ```
 
 Running `poetry install` or `poetry sync` again puts the CPU build back; repeat this step after it.
 
-Check the result. It should print `✓ GPU: CUDA (<your GPU>, <memory>GB)`:
+Check the result. The first command should print the GPU and a list that includes `sm_120`;
+the second should print `✓ GPU: CUDA (NVIDIA GeForce RTX 5070, 12GB)`:
 
 ```powershell
+poetry run python -c "import torch; print(torch.cuda.get_device_name(0), torch.cuda.get_arch_list())"
 poetry run python -m src.performance.gpu_detector
 ```
+
+If training fails with "no kernel image is available for execution on the device", the installed
+build lacks `sm_120`: reinstall with `cu130` as above.
 
 ## 4. Check everything works
 
@@ -52,7 +60,7 @@ poetry run black --check src tests
 poetry run mypy src
 ```
 
-One test plays the game in real Chrome for 1,000 steps (~80s); it is skipped if Chrome is missing.
+One test plays the game in real Chrome with random actions until the dino crashes (a few seconds); it is skipped if Chrome is missing.
 
 ## 5. Commands without `make`
 

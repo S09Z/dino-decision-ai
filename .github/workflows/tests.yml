@@ -1,0 +1,30 @@
+name: tests
+
+# Runs lint and the full test suite on Windows, where the training machine is
+# (docs/WINDOWS.md). The runner has Google Chrome, so the real-Chrome test runs
+# too; it has no GPU, so torch stays the CPU build from poetry.lock.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction
+      - name: Lint
+        run: |
+          poetry run black --check src tests
+          poetry run mypy src
+      - name: Test
+        run: poetry run pytest tests/ -v --cov=src --cov-fail-under=80
