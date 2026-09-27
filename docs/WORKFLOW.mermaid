@@ -10,7 +10,7 @@ flowchart TD
     end
 
     subgraph S2["2. Train (hours, real Chrome)"]
-        train["train --agent dqn | ppo<br/>or train --all"]
+        train["train --agent dqn | ppo<br/>or train --all [--parallel]"]
     end
 
     subgraph S3["3. Check results"]

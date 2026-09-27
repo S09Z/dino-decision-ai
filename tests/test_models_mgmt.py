@@ -84,6 +84,30 @@ def test_prune_deletes_all_but_the_best(manager):
     assert manager.best("ppo").step == 1  # other agents untouched
 
 
+def test_two_processes_saving_different_agents_keep_both(manager, monkeypatch):
+    """Parallel training: dqn and ppo run in separate processes, each with its
+    own CheckpointManager on the same directory. dqn saves between ppo reading
+    the index and ppo writing it back; neither save may be lost."""
+    dqn = CheckpointManager(manager.directory, keep_best_n=2)
+    ppo = CheckpointManager(manager.directory, keep_best_n=2)
+    original = ppo._load_index
+    reads = []
+
+    def read_then_dqn_saves(*args):
+        index = original(*args)
+        reads.append(1)
+        if len(reads) == 2:  # the read that save() writes back
+            dqn.save(FakeAgent(), "dqn", step=1, reward=-10.0)
+        return index
+
+    monkeypatch.setattr(ppo, "_load_index", read_then_dqn_saves)
+    ppo.save(FakeAgent(), "ppo", step=1, reward=-20.0)
+
+    fresh = CheckpointManager(manager.directory)
+    assert fresh.best("dqn") is not None
+    assert fresh.best("ppo") is not None
+
+
 def test_load_best_without_checkpoints_raises(manager):
     with pytest.raises(FileNotFoundError):
         manager.load_best(FakeAgent(), "dqn")

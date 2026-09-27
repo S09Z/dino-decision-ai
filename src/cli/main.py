@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
+import psutil
 import typer
 
 from src.evaluation.evaluate import RandomPolicy, evaluate, report
@@ -14,9 +15,11 @@ from src.profiling.baseline import instrument
 from src.profiling.profiler import Profiler
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
+from src.training.parallel import ram_warning, train_parallel
 
 app = typer.Typer()
 MB = 1024**2
+GB = 1024**3
 
 
 def _check_agent(agent: str) -> str:
@@ -33,10 +36,27 @@ def train(
     steps: int = 20_000,
     checkpoint_every: int = 5_000,
     profile: bool = typer.Option(False, help="Print per-call timings at the end"),
+    parallel: bool = typer.Option(
+        False, help="With --all: train agents at once, each with its own Chrome"
+    ),
+    progress_bar: bool = typer.Option(True, "--progress-bar/--no-progress-bar"),
 ):
     """Train agents, recording episodes to the metrics DB and keeping the
     best checkpoints (real time: ~12 steps/s per agent)"""
     names = list(AGENTS) if all_agents else [_check_agent(agent)]
+    if parallel and len(names) > 1:
+        if profile:
+            typer.echo("--profile does not work with --parallel", err=True)
+            raise typer.Exit(1)
+        warning = ram_warning(names, psutil.virtual_memory().available / GB)
+        if warning:
+            typer.echo(warning, err=True)
+        codes = train_parallel(names, steps, checkpoint_every)
+        for name, code in codes.items():
+            typer.echo(f"{name}: " + ("done" if code == 0 else f"failed (exit {code})"))
+        if any(codes.values()):
+            raise typer.Exit(1)
+        return
     env = make_dino_env()
     profiler = Profiler()
     try:
@@ -47,9 +67,12 @@ def train(
                 monitor = TrainingMonitor(
                     name, db, CheckpointManager(), checkpoint_every
                 )
-                AGENTS[name](env).train(steps, callback=monitor, progress_bar=True)
+                model = AGENTS[name](env)
+                model.train(steps, callback=monitor, progress_bar=progress_bar)
+                # actual steps: SB3 rounds up (DQN to train_freq, PPO to n_steps)
                 typer.echo(
-                    f"Trained {name} for {steps} steps, {monitor.episodes} episodes"
+                    f"Trained {name} for {model.model.num_timesteps} steps,"
+                    f" {monitor.episodes} episodes"
                 )
     finally:
         env.close()
