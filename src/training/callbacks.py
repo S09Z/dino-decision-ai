@@ -78,6 +78,8 @@ class TrainingMonitor(BaseCallback):
             memory_mb=usage["memory_mb"],
             cpu_percent=usage["cpu_percent"],
             gpu_memory_mb=usage["gpu_memory_mb"],
+            agent=self.name,
+            step=self.num_timesteps,
         )
         logged = self.model.logger.name_to_value
         self.db.add_training(

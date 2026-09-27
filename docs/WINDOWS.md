@@ -89,9 +89,10 @@ powershell -ExecutionPolicy Bypass -File .\make.ps1 test
 ```powershell
 .\make.ps1 train --all --parallel --steps 100000
 .\make.ps1 eval --compare
+poetry run dino-ai report
 ```
 
 - The game runs in real time (~12 steps/s), so 100k steps per agent is ~2.3 hours. `--parallel` trains DQN and PPO at the same time (one Chrome each, ~4GB RAM), so both finish in ~2.3 hours instead of ~4.6; without it they train one after the other with a progress bar. In parallel mode a status line every minute shows episodes, recent reward and RAM.
 - Stop Windows from sleeping for the whole run: Settings → System → Power → Screen and sleep → "Never" while plugged in. Sleep or a heavy background job (video export, games, updates) slows the game loop and the dino dies more, which makes results look worse than they are.
 - Results stay on that machine: checkpoints in `models/checkpoints/` (their index uses forward-slash paths, so the folder can be copied between Windows and macOS), metrics in `models/logs/metrics.db`, logs in `logs/`. All are git-ignored.
-- `poetry run dino-ai inspect` shows what was kept; `poetry run dino-ai clean --keep 3` frees disk.
+- `poetry run dino-ai report` writes `models/logs/report.html`: learning curves, speed and memory per agent, and a leak check. `poetry run dino-ai inspect` shows what was kept; `poetry run dino-ai clean --keep 3` frees disk.

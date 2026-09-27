@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS training (
 CREATE TABLE IF NOT EXISTS performance (
     id INTEGER PRIMARY KEY,
     timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    agent TEXT,
+    step INTEGER,
     steps_per_s REAL NOT NULL,
     memory_mb REAL NOT NULL,
     cpu_percent REAL NOT NULL,
@@ -55,6 +57,13 @@ class MetricsDB:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        # DBs created before performance rows had agent/step columns
+        columns = {
+            row[1] for row in self.conn.execute("PRAGMA table_info(performance)")
+        }
+        for column, kind in (("agent", "TEXT"), ("step", "INTEGER")):
+            if column not in columns:
+                self.conn.execute(f"ALTER TABLE performance ADD COLUMN {column} {kind}")
 
     def _insert(self, table: str, **values: Any) -> None:
         columns = ", ".join(values)
@@ -87,10 +96,15 @@ class MetricsDB:
         memory_mb: float,
         cpu_percent: float,
         gpu_memory_mb: float,
+        agent: Optional[str] = None,
+        step: Optional[int] = None,
     ):
-        """Arguments match profiling.resource_usage() plus the env speed"""
+        """Arguments match profiling.resource_usage() plus the env speed, and
+        which agent at which training step (parallel runs share the DB)"""
         self._insert(
             "performance",
+            agent=agent,
+            step=step,
             steps_per_s=steps_per_s,
             memory_mb=memory_mb,
             cpu_percent=cpu_percent,
@@ -109,6 +123,15 @@ class MetricsDB:
             f"SELECT * FROM episodes {where} ORDER BY id DESC LIMIT ?",
             (*params, limit),
         )
+        return [dict(row) for row in rows]
+
+    def history(self, table: str, agent: Optional[str] = None) -> list[dict]:
+        """All rows of `table` (episodes, training or performance), oldest
+        first, optionally for one agent"""
+        if table not in ("episodes", "training", "performance"):
+            raise ValueError(f"no history for table {table!r}")
+        where, params = ("WHERE agent = ?", (agent,)) if agent else ("", ())
+        rows = self.conn.execute(f"SELECT * FROM {table} {where} ORDER BY id", params)
         return [dict(row) for row in rows]
 
     def episode_count(self, agent: Optional[str] = None) -> int:
