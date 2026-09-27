@@ -89,6 +89,7 @@ def test_random_agent_in_real_chrome():
         assert terminated and reward == CRASH_REWARD
         obs, info = env.reset()
         assert not info["crashed"]
+        assert info["speed"] >= 6  # the game's starting SPEED
     finally:
         env.close()
 
