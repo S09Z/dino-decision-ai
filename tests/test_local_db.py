@@ -116,3 +116,20 @@ def test_old_db_without_agent_and_step_columns_is_upgraded(tmp_path):
         rows = db.history("performance")
 
     assert [(r["agent"], r["step"]) for r in rows] == [(None, None), ("dqn", 100)]
+
+
+def test_old_routing_table_gains_difficulty_and_source(tmp_path):
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE routing (id INTEGER PRIMARY KEY, timestamp TEXT,"
+        " agent TEXT NOT NULL, confidence REAL NOT NULL)"
+    )
+    old.commit()
+    old.close()
+
+    with MetricsDB(path) as db:
+        db.add_routing("ppo", 0.9, difficulty="HARD", source="heuristic")
+        (row,) = db.history("routing")
+
+    assert (row["difficulty"], row["source"]) == ("HARD", "heuristic")

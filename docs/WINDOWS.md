@@ -89,6 +89,7 @@ powershell -ExecutionPolicy Bypass -File .\make.ps1 test
 ```powershell
 .\make.ps1 train --all --parallel --steps 100000
 .\make.ps1 eval --compare
+poetry run dino-ai play --episodes 20
 poetry run dino-ai report
 ```
 

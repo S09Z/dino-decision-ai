@@ -43,9 +43,17 @@ CREATE TABLE IF NOT EXISTS routing (
     id INTEGER PRIMARY KEY,
     timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     agent TEXT NOT NULL,
-    confidence REAL NOT NULL
+    confidence REAL NOT NULL,
+    difficulty TEXT,
+    source TEXT
 );
 """
+
+# Columns added after the first release; older DBs gain them on open
+ADDED_COLUMNS = {
+    "performance": (("agent", "TEXT"), ("step", "INTEGER")),
+    "routing": (("difficulty", "TEXT"), ("source", "TEXT")),
+}
 
 
 class MetricsDB:
@@ -57,13 +65,13 @@ class MetricsDB:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
-        # DBs created before performance rows had agent/step columns
-        columns = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(performance)")
-        }
-        for column, kind in (("agent", "TEXT"), ("step", "INTEGER")):
-            if column not in columns:
-                self.conn.execute(f"ALTER TABLE performance ADD COLUMN {column} {kind}")
+        for table, added in ADDED_COLUMNS.items():
+            columns = {
+                row[1] for row in self.conn.execute(f"PRAGMA table_info({table})")
+            }
+            for column, kind in added:
+                if column not in columns:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
 
     def _insert(self, table: str, **values: Any) -> None:
         columns = ", ".join(values)
@@ -111,8 +119,22 @@ class MetricsDB:
             gpu_memory_mb=gpu_memory_mb,
         )
 
-    def add_routing(self, agent: str, confidence: float):
-        self._insert("routing", agent=agent, confidence=confidence)
+    def add_routing(
+        self,
+        agent: str,
+        confidence: float,
+        difficulty: Optional[str] = None,
+        source: Optional[str] = None,
+    ):
+        """A routing decision: which agent plays, at which difficulty, and
+        who decided (laya, heuristic or explore)"""
+        self._insert(
+            "routing",
+            agent=agent,
+            confidence=confidence,
+            difficulty=difficulty,
+            source=source,
+        )
 
     def query_recent_episodes(
         self, agent: Optional[str] = None, limit: int = 10
@@ -126,9 +148,9 @@ class MetricsDB:
         return [dict(row) for row in rows]
 
     def history(self, table: str, agent: Optional[str] = None) -> list[dict]:
-        """All rows of `table` (episodes, training or performance), oldest
+        """All rows of `table` (episodes, training, performance or routing), oldest
         first, optionally for one agent"""
-        if table not in ("episodes", "training", "performance"):
+        if table not in ("episodes", "training", "performance", "routing"):
             raise ValueError(f"no history for table {table!r}")
         where, params = ("WHERE agent = ?", (agent,)) if agent else ("", ())
         rows = self.conn.execute(f"SELECT * FROM {table} {where} ORDER BY id", params)
