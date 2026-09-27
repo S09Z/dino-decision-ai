@@ -14,10 +14,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
 | 2 Core RL + monitoring | 12 | 13 | Exit criteria met; only 2.1's "better than random" check is open (needs a longer run) |
 | 3 Caching & testing | 4 | 5 | Exit criteria met; 3.1 dropped (frames never repeat); only 3.2's "better than random" check is open |
-| 4–8 | 0 | 19 | Not started |
+| 4 Optimization & comparison | 1 | 4 | 4.1 done; 4.3/4.4 need long runs on the Windows machine |
+| 5–8 | 0 | 15 | Not started |
 
-**Next up:** a long `dino-ai train --all` run, then `dino-ai eval --compare`, to close the DQN and PPO "better than random" checks; then Phase 4.
-**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is draft PR [#10](https://github.com/S09Z/dino-decision-ai/pull/10), stacked on #9; Phase 3.2 is draft PR [#11](https://github.com/S09Z/dino-decision-ai/pull/11), stacked on #10; Phase 3.3 is draft PR [#13](https://github.com/S09Z/dino-decision-ai/pull/13), stacked on #11 (#12 was the user's merge of 1.5 + 1.2 into `main`); Phase 3.4 is draft PR [#14](https://github.com/S09Z/dino-decision-ai/pull/14), stacked on #13; Windows 11 support ([docs/WINDOWS.md](docs/WINDOWS.md)) is `claude/windows-support`, stacked on #14.
+**Next up:** a long `dino-ai train --all --parallel` run on the Windows machine, then `dino-ai eval --compare`, to close the DQN and PPO "better than random" checks; meanwhile Phase 4.2.
+**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is draft PR [#10](https://github.com/S09Z/dino-decision-ai/pull/10), stacked on #9; Phase 3.2 is draft PR [#11](https://github.com/S09Z/dino-decision-ai/pull/11), stacked on #10; Phase 3.3 is draft PR [#13](https://github.com/S09Z/dino-decision-ai/pull/13), stacked on #11 (#12 was the user's merge of 1.5 + 1.2 into `main`); Phase 3.4 is draft PR [#14](https://github.com/S09Z/dino-decision-ai/pull/14), stacked on #13; Windows 11 support ([docs/WINDOWS.md](docs/WINDOWS.md)) is draft PR [#15](https://github.com/S09Z/dino-decision-ai/pull/15), stacked on #14; Phase 4.1 is `claude/parallel-trainer`, stacked on #15.
 
 ---
 
@@ -95,7 +96,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] Tests (`tests/test_local_db.py`)
 
 ### 2.4 Model versioning ⭐ P2 (3–4h)
-- [x] `checkpoint_manager.py` (save best, keep N, cleanup): `CheckpointManager(keep_best_n=5)`, ranked by reward per agent, `models/checkpoints/` + `checkpoints.json`
+- [x] `checkpoint_manager.py` (save best, keep N, cleanup): `CheckpointManager(keep_best_n=5)`, ranked by reward per agent, `models/checkpoints/` + one index per agent (`dqn.json`, `ppo.json`)
 - [x] `model_registry.py`: releases to `models/vX.Y.Z/<agent>.zip`, `registry.json` with metrics and notes, `compare`, `changelog`; version numbering (`next_version`) lives here, so no separate `version_tracker.py`
 - [x] Tests (`tests/test_models_mgmt.py`, incl. a real `DQNAgent` save/load)
 
@@ -132,7 +133,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 
 ## Phase 4 — Optimization & comparison (20–30h)
 
-- [ ] 4.1 `ParallelTrainer` (DQN + PPO in parallel, shared env, resource monitor, auto batch size) — 4–5h
+- [x] 4.1 Parallel training (`dino-ai train --all --parallel`, `src/training/parallel.py`): each agent in its own process with its own Chrome, since two agents cannot share one real-time game; a free-RAM check before starting and a status line every minute (episodes, last-10 reward, RAM of all processes). Checkpoint indexes are now per agent, fixing a lost-update race between processes (reproduced in a test). "Auto batch size" dropped: the model holds ~13MB of GPU memory, so batch size is not what limits resources; RAM (Chrome + replay buffer) is, and the RAM check covers it. Real run on the Mac: DQN + PPO together used 2.0–2.5GB — 4–5h
 - [ ] 4.2 Deep profiling: line profiler, leak detection, HTML comparison reports — 3–4h
 - [ ] 4.3 DQN vs PPO: 250K steps each, compare metrics, write up findings — 4–6h
 - [ ] 4.4 Hyperparameter tuning (lr, entropy coef, GAE λ), ablations, document — 8–10h
