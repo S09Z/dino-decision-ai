@@ -37,6 +37,7 @@ _STATE_JS = """() => {
     playing: r.playing,
     distance: r.distanceRan,
     score: r.distanceMeter.getActualDistance(r.distanceRan),
+    speed: r.currentSpeed,  // 6 at the start, up to MAX_SPEED 13
   };
 }"""
 
