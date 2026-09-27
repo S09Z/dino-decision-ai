@@ -16,6 +16,7 @@ flowchart TD
     subgraph S3["3. Check results"]
         eval["eval --compare<br/>best models vs random"]
         inspect["inspect<br/>what was saved"]
+        report["report<br/>HTML: curves, speed,<br/>memory leak check"]
     end
 
     subgraph S4["4. Housekeeping"]
@@ -32,4 +33,5 @@ flowchart TD
     ckpt --> eval
     ckpt --> inspect
     db --> inspect
+    db --> report
     ckpt --> clean

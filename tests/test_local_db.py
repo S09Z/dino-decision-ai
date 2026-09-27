@@ -81,3 +81,38 @@ def test_close_releases_connection(tmp_path):
 
     with pytest.raises(sqlite3.ProgrammingError):
         db.query_recent_episodes()
+
+
+def test_performance_rows_record_agent_and_step(db):
+    db.add_performance(1.0, 2.0, 3.0, 4.0, agent="ppo", step=5000)
+    db.add_performance(1.0, 2.0, 3.0, 4.0, agent="dqn", step=5000)
+
+    (row,) = db.history("performance", agent="ppo")
+    assert (row["agent"], row["step"], row["memory_mb"]) == ("ppo", 5000, 2.0)
+
+
+def test_history_is_oldest_first_and_limited_to_known_tables(db):
+    for episode in range(3):
+        db.add_episode(agent="dqn", episode=episode, reward=0.0, length=1)
+
+    assert [r["episode"] for r in db.history("episodes")] == [0, 1, 2]
+    with pytest.raises(ValueError):
+        db.history("routing; DROP TABLE episodes")
+
+
+def test_old_db_without_agent_and_step_columns_is_upgraded(tmp_path):
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE performance (id INTEGER PRIMARY KEY, timestamp TEXT,"
+        " steps_per_s REAL, memory_mb REAL, cpu_percent REAL, gpu_memory_mb REAL)"
+    )
+    old.execute("INSERT INTO performance VALUES (1, 't', 12.0, 1300.0, 20.0, 13.0)")
+    old.commit()
+    old.close()
+
+    with MetricsDB(path) as db:
+        db.add_performance(13.0, 1400.0, 21.0, 13.0, agent="dqn", step=100)
+        rows = db.history("performance")
+
+    assert [(r["agent"], r["step"]) for r in rows] == [(None, None), ("dqn", 100)]

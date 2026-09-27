@@ -148,6 +148,19 @@ def clean(keep: int = typer.Option(3, min=0, help="Checkpoints to keep per agent
         )
 
 
+@app.command("report")
+def html_report(out: Path = Path("models") / "logs" / "report.html"):
+    """Write an HTML report comparing agents: learning curves, speed, memory
+    and a leak check (from the metrics DB)"""
+    from src.profiling.report import build_report
+
+    with MetricsDB() as db:
+        page = build_report(db, list(AGENTS))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    typer.echo(f"Wrote {out}")
+
+
 @app.command()
 def profile(steps: int = 500, out: Optional[Path] = None):
     """Profile env speed and DQN inference (see docs/PROFILING_BASELINE.md)"""
