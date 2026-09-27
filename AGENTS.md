@@ -20,6 +20,8 @@ make format     # black + isort (src, tests)
 
 Run a single test: `poetry run pytest tests/test_example.py::test_name -v`.
 
+On Windows, `.\make.ps1 <target> [args]` has the same targets (plus `cuda`); keep it in step with the Makefile and ASCII-only.
+
 ## Layout
 
 - `src/environment/` Gymnasium env (`dino_env.py`), Chrome driver (`chrome_game.py`), vendored game (`game/`, do not edit; see `game/SOURCE.md`)

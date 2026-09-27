@@ -62,22 +62,33 @@ poetry run mypy src
 
 One test plays the game in real Chrome with random actions until the dino crashes (a few seconds); it is skipped if Chrome is missing.
 
-## 5. Commands without `make`
+## 5. Commands without `make`: `make.ps1`
 
-| `make` target | PowerShell |
-|---|---|
-| `make train` | `poetry run dino-ai train --agent dqn` |
-| `make eval` | `poetry run dino-ai eval` |
-| `make profile` | `poetry run dino-ai profile --steps 500` |
-| `make test` | `poetry run pytest tests/ -v --cov=src --cov-fail-under=80` |
-| `make lint` | `poetry run black --check src tests` then `poetry run mypy src` |
-| `make format` | `poetry run black src tests` then `poetry run isort src tests` |
+`make.ps1` in the repo root has the same targets as the Makefile, plus `cuda` (step 3 in one go).
+Extra arguments go through to the command:
+
+```powershell
+.\make.ps1 help
+.\make.ps1 setup
+.\make.ps1 cuda
+.\make.ps1 test
+.\make.ps1 train --all --steps 100000
+.\make.ps1 eval --compare
+```
+
+Windows blocks scripts until you allow them. Either allow scripts you created or cloned
+(once, for your user), or bypass the policy for a single run:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+powershell -ExecutionPolicy Bypass -File .\make.ps1 test
+```
 
 ## 6. Long training runs
 
 ```powershell
-poetry run dino-ai train --all --steps 100000
-poetry run dino-ai eval --compare
+.\make.ps1 train --all --steps 100000
+.\make.ps1 eval --compare
 ```
 
 - The game runs in real time (~12 steps/s), so 100k steps per agent is ~2.3 hours each. The progress bar shows time left.

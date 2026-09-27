@@ -20,11 +20,16 @@ jobs:
           python-version: "3.12"
       - name: Install Poetry
         run: pipx install poetry
+      # Steps go through make.ps1, the Windows version of the Makefile, so CI
+      # also checks the script in PowerShell 7 (pwsh) and Windows PowerShell 5.1
       - name: Install dependencies
-        run: poetry install --no-interaction
-      - name: Lint
+        run: ./make.ps1 setup
+      - name: make.ps1 forwards extra arguments (Windows PowerShell 5.1)
+        shell: powershell
         run: |
-          poetry run black --check src tests
-          poetry run mypy src
+          .\make.ps1 help
+          .\make.ps1 train --all --steps 10 --help
+      - name: Lint
+        run: ./make.ps1 lint
       - name: Test
-        run: poetry run pytest tests/ -v --cov=src --cov-fail-under=80
+        run: ./make.ps1 test
