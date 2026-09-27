@@ -6,18 +6,18 @@ Each phase ends with an **Exit criteria** line: do not start the next phase unti
 Legend: `[x]` done · `[ ]` open · ⭐ priority (Priority 1 = do first)
 Hours: plan with PLAN.md's 139–182h estimate.
 
-## Progress (updated 2026-09-25)
+## Progress (updated 2026-09-27)
 
 | Phase | Done | Total | Status |
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
 | 2 Core RL + monitoring | 12 | 13 | Exit criteria met; only 2.1's "better than random" check is open (needs a longer run) |
-| 3 Caching & testing | 3 | 5 | 3.1 dropped (frames never repeat); 3.2 PPO built ("better than random" not conclusive yet); 3.3 done |
+| 3 Caching & testing | 4 | 5 | Exit criteria met; 3.1 dropped (frames never repeat); only 3.2's "better than random" check is open |
 | 4–8 | 0 | 19 | Not started |
 
-**Next up:** Phase 3.4 (CLI expansion); a longer training run for DQN and PPO closes both "better than random" checks.
-**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is draft PR [#10](https://github.com/S09Z/dino-decision-ai/pull/10), stacked on #9; Phase 3.2 is draft PR [#11](https://github.com/S09Z/dino-decision-ai/pull/11), stacked on #10; Phase 3.3 is `claude/testing-framework`, stacked on #11.
+**Next up:** a long `dino-ai train --all` run, then `dino-ai eval --compare`, to close the DQN and PPO "better than random" checks; then Phase 4.
+**Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is draft PR [#10](https://github.com/S09Z/dino-decision-ai/pull/10), stacked on #9; Phase 3.2 is draft PR [#11](https://github.com/S09Z/dino-decision-ai/pull/11), stacked on #10; Phase 3.3 is draft PR [#13](https://github.com/S09Z/dino-decision-ai/pull/13), stacked on #11 (#12 was the user's merge of 1.5 + 1.2 into `main`); Phase 3.4 is `claude/cli-expansion`, stacked on #13.
 
 ---
 
@@ -124,9 +124,9 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 - [x] Coverage >80%: 94% total, enforced by `--cov-fail-under=80` in `make test`. `pytest-xdist` measured and not added: parallel runs were slower (4 workers 43s, `-n auto` 54s vs 30s serial) because each worker re-imports torch/SB3 and one real-Chrome test dominates; revisit when the suite grows. It did expose an order-dependent logger test, now fixed
 
 ### 3.4 CLI expansion (2–3h)
-- [ ] `train --all --profile`, `eval --compare`, `inspect --model`, `clean --keep N`
+- [x] `train --all --profile`, `eval --compare`, `inspect [--agent]`, `clean --keep N`. `eval --compare` evaluates random plus every agent's best checkpoint (PLAN's `--compare v1.0.0` needs registered versions, and nothing registers them yet); `inspect` shows checkpoints, releases and recorded episodes
 
-**Exit criteria:** both agents train via CLI; coverage ≥80%; `make lint` clean.
+**Exit criteria:** both agents train via CLI; coverage ≥80%; `make lint` clean. ✅ Met (2026-09-27): `dino-ai train --agent ppo|--all` (PPO trained for real in the 3.2 smoke run), 94% coverage with an 80% gate, lint clean.
 
 ---
 

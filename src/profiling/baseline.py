@@ -17,16 +17,23 @@ from src.environment.dino_env import ChromeDinoEnv
 from src.profiling.profiler import Profiler, resource_usage
 
 
+def instrument(env: ChromeDinoEnv, profiler: Profiler) -> None:
+    """Time env.step and the game's act/state/frame calls from now on
+    (starts the game if it is not running yet)"""
+    if env._game is None:
+        env.reset()
+    for method in ("act", "state", "frame"):
+        setattr(env._game, method, profiler.profile(getattr(env._game, method)))
+    env.step = profiler.profile(env.step)  # type: ignore[method-assign]
+
+
 def profile_env(env: ChromeDinoEnv, profiler: Profiler, steps: int) -> float:
     """Run `steps` random actions, timing env and game calls; returns steps/s"""
     env.reset()
-    game = env._game
-    for method in ("act", "state", "frame"):
-        setattr(game, method, profiler.profile(getattr(game, method)))
-    step = profiler.profile(env.step)
+    instrument(env, profiler)
     start = time.perf_counter()
     for _ in range(steps):
-        _, _, terminated, _, _ = step(env.action_space.sample())
+        _, _, terminated, _, _ = env.step(env.action_space.sample())
         if terminated:
             env.reset()
     return steps / (time.perf_counter() - start)

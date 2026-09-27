@@ -58,12 +58,18 @@ class CheckpointManager:
         checkpoint = Checkpoint(
             name, step, reward, str(path), datetime.now().isoformat(timespec="seconds")
         )
-        kept = sorted(kept + [checkpoint], key=lambda c: c.reward, reverse=True)
-        for old in kept[self.keep_best_n :]:
-            Path(old.path).unlink(missing_ok=True)
-        others = [c for c in self._load_index() if c.name != name]
-        self._write_index(others + kept[: self.keep_best_n])
+        self._write_index(self._load_index() + [checkpoint])
+        self.prune(name, self.keep_best_n)
         return checkpoint
+
+    def prune(self, name: str, keep: int) -> list[Checkpoint]:
+        """Delete all but the `keep` best checkpoints of `name`; returns the
+        removed ones"""
+        removed = self.checkpoints(name)[keep:]
+        for checkpoint in removed:
+            Path(checkpoint.path).unlink(missing_ok=True)
+        self._write_index([c for c in self._load_index() if c not in removed])
+        return removed
 
     def best(self, name: str) -> Optional[Checkpoint]:
         kept = self.checkpoints(name)

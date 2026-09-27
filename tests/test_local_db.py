@@ -46,6 +46,8 @@ def test_query_recent_episodes_newest_first_filtered_and_limited(db):
     assert [r["episode"] for r in recent] == [4, 3, 2]
     assert {r["agent"] for r in recent} == {"dqn"}
     assert len(db.query_recent_episodes(limit=100)) == 10
+    assert db.episode_count() == 10
+    assert db.episode_count("ppo") == 5
 
 
 def test_add_training_performance_and_routing(db):

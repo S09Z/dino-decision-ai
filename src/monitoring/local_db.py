@@ -111,6 +111,11 @@ class MetricsDB:
         )
         return [dict(row) for row in rows]
 
+    def episode_count(self, agent: Optional[str] = None) -> int:
+        where, params = ("WHERE agent = ?", (agent,)) if agent else ("", ())
+        row = self.conn.execute(f"SELECT COUNT(*) FROM episodes {where}", params)
+        return row.fetchone()[0]
+
     def close(self) -> None:
         self.conn.close()
 
