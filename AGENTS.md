@@ -20,6 +20,8 @@ make format     # black + isort (src, tests)
 
 Run a single test: `poetry run pytest tests/test_example.py::test_name -v`.
 
+On Windows, `.\make.ps1 <target> [args]` has the same targets (plus `cuda`); keep it in step with the Makefile and ASCII-only.
+
 ## Layout
 
 - `src/environment/` Gymnasium env (`dino_env.py`), Chrome driver (`chrome_game.py`), vendored game (`game/`, do not edit; see `game/SOURCE.md`)
@@ -70,3 +72,4 @@ The project is an early scaffold (~250 lines of Python); nothing trains or plays
 - Unit tests use a fake game (`FakeGame` in `tests/test_environment.py`) or a fake Playwright page (`tests/test_chrome_game.py`); only one test launches Chrome. Keep it that way.
 - PLAN.md is the original roadmap (goals marked ⬜ are targets, estimate 139–182h); `TODO.md` is the status.
 - `models/` (top level) is git-ignored and mounted into Docker; `src/models/` is source. Do not confuse them.
+- Windows 11 is a supported training machine ([docs/WINDOWS.md](docs/WINDOWS.md)): no `make`, and PyPI's Windows torch is CPU-only, so CUDA needs the pytorch.org wheel after `poetry install`. Keep code OS-neutral: `pathlib`, `encoding="utf-8"` on text files, forward-slash paths (`as_posix()`) in stored JSON. CI (`.github/workflows/tests.yml`) runs lint and tests on `windows-latest` for every PR.

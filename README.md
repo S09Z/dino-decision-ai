@@ -4,6 +4,10 @@ Autonomous Multi-Agent RL System for Google Chrome Dinosaur Game with Laya Route
 
 ## Quick Start
 
+On Windows 11 (no `make`, CUDA torch needs one extra step), follow [docs/WINDOWS.md](docs/WINDOWS.md).
+
+How the commands fit together (setup → train → check results): [docs/WORKFLOW.mermaid](docs/WORKFLOW.mermaid).
+
 ### 1. Setup
 ```bash
 make setup
@@ -28,7 +32,7 @@ Open http://localhost:8000 in your browser.
 
 ## Commands
 
-- `make train` - Train the DQN agent (PPO arrives in Phase 3.2)
+- `make train` - Train the DQN agent (`poetry run dino-ai train --all` trains DQN and PPO)
 - `make eval` - Evaluate the best DQN checkpoint
 - `make profile` - Profile performance
 - `make dashboard` - Start real-time dashboard

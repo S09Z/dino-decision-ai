@@ -1,0 +1,35 @@
+name: tests
+
+# Runs lint and the full test suite on Windows, where the training machine is
+# (docs/WINDOWS.md). The runner has Google Chrome, so the real-Chrome test runs
+# too; it has no GPU, so torch stays the CPU build from poetry.lock.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pipx install poetry
+      # Steps go through make.ps1, the Windows version of the Makefile, so CI
+      # also checks the script in PowerShell 7 (pwsh) and Windows PowerShell 5.1
+      - name: Install dependencies
+        run: ./make.ps1 setup
+      - name: make.ps1 forwards extra arguments (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          .\make.ps1 help
+          .\make.ps1 train --all --steps 10 --help
+      - name: Lint
+        run: ./make.ps1 lint
+      - name: Test
+        run: ./make.ps1 test

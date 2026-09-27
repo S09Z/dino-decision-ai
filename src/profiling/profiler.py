@@ -84,7 +84,7 @@ def resource_usage() -> dict[str, float]:
         try:
             rss += proc.memory_info().rss
             cpu += proc.cpu_percent(interval=0.1)
-        except psutil.NoSuchProcess:
+        except psutil.Error:  # exited, or not ours to read (e.g. on Windows)
             pass
     if torch.cuda.is_available():
         gpu = torch.cuda.memory_allocated()
