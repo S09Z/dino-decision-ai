@@ -15,7 +15,7 @@ flowchart TD
 
     subgraph S3["3. Check results"]
         eval["eval --compare<br/>best models vs random"]
-        play["play<br/>router picks DQN or PPO"]
+        play["play [--laya]<br/>router picks DQN or PPO"]
         inspect["inspect<br/>what was saved"]
         report["report<br/>HTML: curves, speed,<br/>memory leak check"]
     end

@@ -14,7 +14,8 @@ from src.monitoring.local_db import MetricsDB
 from src.profiling.baseline import instrument
 from src.profiling.profiler import Profiler
 from src.routing.agent_manager import AgentManager
-from src.routing.laya_router import LayaRouter
+from src.routing.laya_classifier import LayaClassifier
+from src.routing.laya_router import Classifier, LayaRouter
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
 from src.training.parallel import ram_warning, train_parallel
@@ -118,16 +119,40 @@ def eval(
     typer.echo("\n".join(results))
 
 
+def _paused(classifier: Classifier, env) -> Classifier:
+    """The game is real time: pause it while the classifier decides"""
+
+    def decide(scores: dict[str, float], difficulty: str) -> tuple[str, float]:
+        env.env_method("pause")
+        try:
+            return classifier(scores, difficulty)
+        finally:
+            env.env_method("resume")
+
+    return decide
+
+
 @app.command()
-def play(episodes: int = 5):
+def play(
+    episodes: int = 5,
+    laya: bool = typer.Option(
+        False, help="Laya decides (downloads ~843MB on first use)"
+    ),
+):
     """Play with the router choosing DQN or PPO (best checkpoints) at each
     difficulty; prints each episode's game score"""
+    classifier = None
+    if laya:
+        typer.echo("Loading Laya...")
+        classifier = LayaClassifier()
+        classifier.load()
     env = make_dino_env()
+    router = LayaRouter(_paused(classifier, env) if classifier else None)
     scores: list[float] = []
     try:
         with MetricsDB() as db:
             try:
-                manager = AgentManager.from_checkpoints(env, LayaRouter(), db)
+                manager = AgentManager.from_checkpoints(env, router, db)
             except FileNotFoundError as error:
                 typer.echo(f"{error}; run `train --all` first", err=True)
                 raise typer.Exit(1)
