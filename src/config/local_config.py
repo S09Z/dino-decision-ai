@@ -6,11 +6,21 @@ import torch
 from .base_config import BaseConfig
 
 
+def detect_device() -> str:
+    """Best available torch device: CUDA, then Apple MPS, then CPU"""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 class LocalConfig(BaseConfig):
     """Configuration optimized for local machine"""
 
-    # Auto-detect GPU
-    USE_GPU = torch.cuda.is_available()
+    # Auto-detect GPU (CUDA or Apple MPS)
+    DEVICE = detect_device()
+    USE_GPU = DEVICE != "cpu"
 
     # Auto-detect resources
     AVAILABLE_RAM_GB = psutil.virtual_memory().total / (1024**3)
@@ -30,7 +40,7 @@ class LocalConfig(BaseConfig):
     def auto_optimize():
         """Auto-optimize configuration for local machine"""
         config = LocalConfig()
-        print(f"✓ GPU Available: {config.USE_GPU}")
+        print(f"✓ Device: {config.DEVICE}")
         print(f"✓ CPU Cores: {config.CPU_CORES}")
         print(f"✓ RAM: {config.AVAILABLE_RAM_GB:.1f}GB")
         print(f"✓ Batch Size: {config.BATCH_SIZE}")

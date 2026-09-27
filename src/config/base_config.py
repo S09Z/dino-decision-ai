@@ -7,19 +7,9 @@ class BaseConfig:
     # Game settings
     GAME_SPEED = 1.0
 
-    # Training settings
-    LEARNING_RATE = 1e-4
-    BATCH_SIZE = 32
-    GAMMA = 0.99
-
-    # DQN settings
-    BUFFER_SIZE = 50000
-    EPSILON_START = 1.0
-    EPSILON_END = 0.1
-
-    # PPO settings
-    ENTROPY_COEFF = 0.01
-    GAE_LAMBDA = 0.95
+    # Algorithm hyperparameters live in dqn_config.py and ppo_config.py
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.__dict__})"
+        # settings are UPPER_CASE class attributes, so self.__dict__ is empty
+        settings = {name: getattr(self, name) for name in dir(self) if name.isupper()}
+        return f"{self.__class__.__name__}({settings})"
