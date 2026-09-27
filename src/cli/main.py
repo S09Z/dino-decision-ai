@@ -13,6 +13,8 @@ from src.models_mgmt.model_registry import ModelRegistry
 from src.monitoring.local_db import MetricsDB
 from src.profiling.baseline import instrument
 from src.profiling.profiler import Profiler
+from src.routing.agent_manager import AgentManager
+from src.routing.laya_router import LayaRouter
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
 from src.training.parallel import ram_warning, train_parallel
@@ -114,6 +116,35 @@ def eval(
     finally:
         env.close()
     typer.echo("\n".join(results))
+
+
+@app.command()
+def play(episodes: int = 5):
+    """Play with the router choosing DQN or PPO (best checkpoints) at each
+    difficulty; prints each episode's game score"""
+    env = make_dino_env()
+    scores: list[float] = []
+    try:
+        with MetricsDB() as db:
+            try:
+                manager = AgentManager.from_checkpoints(env, LayaRouter(), db)
+            except FileNotFoundError as error:
+                typer.echo(f"{error}; run `train --all` first", err=True)
+                raise typer.Exit(1)
+            obs = env.reset()
+            while len(scores) < episodes:
+                action, _ = manager.get_action(obs)
+                obs, _, dones, infos = env.step(action)
+                manager.observe(infos[0], bool(dones[0]))
+                if dones[0]:
+                    scores.append(float(infos[0].get("score", 0)))
+                    typer.echo(f"episode {len(scores)}: score {scores[-1]:.0f}")
+    finally:
+        env.close()
+    typer.echo(
+        f"routed: mean score {sum(scores) / len(scores):.1f} over {episodes}"
+        f" episodes, {manager.switches} switches"
+    )
 
 
 @app.command()
