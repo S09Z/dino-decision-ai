@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.environment.chrome_game import ChromeGame
+from src.environment.chrome_game import RUNNER, ChromeGame
 
 
 class FakeKeyboard:
@@ -86,7 +86,7 @@ def test_first_restart_starts_with_space_then_uses_runner_restart(game):
     assert keys(game) == [("press", "Space")]
 
     game.restart()
-    assert "Runner.instance_.restart()" in game._page.scripts[-1]
+    assert "r.restart()" in game._page.scripts[-1]
     assert keys(game) == [("press", "Space")]  # no second key press
 
 
@@ -96,10 +96,7 @@ def test_pause_and_resume_run_once_each(game):
     game.resume()
     game.resume()  # play() starts a new game loop, so it must not repeat
 
-    assert game._page.scripts == [
-        "() => Runner.instance_.stop()",
-        "() => Runner.instance_.play()",
-    ]
+    assert game._page.scripts == [f"() => {RUNNER}.stop()", f"() => {RUNNER}.play()"]
 
 
 def test_restart_clears_paused_state(game):
@@ -124,3 +121,8 @@ def test_frame_crop_is_passed_to_the_page(game):
     game.frame()
 
     assert game._page.args == [([4, None],), ([4, [0, 0, 300, 150]],)]
+
+
+def test_unknown_game_is_rejected_before_launching_chrome():
+    with pytest.raises(ValueError, match="vendored"):
+        ChromeGame(game="dino.example")
