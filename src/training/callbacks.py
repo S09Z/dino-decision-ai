@@ -55,6 +55,11 @@ class TrainingMonitor(BaseCallback):
         self._last_step = 0
         self._last_time = time.perf_counter()
 
+    def _on_training_start(self) -> None:
+        # a resumed model starts at its saved step, not 0: measure speed from here
+        self._last_step = self.num_timesteps
+        self._last_time = time.perf_counter()
+
     def _on_step(self) -> bool:
         for info in self.locals["infos"]:
             episode = info.get("episode")  # added by Monitor when an episode ends

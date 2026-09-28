@@ -3,18 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chrome Dino AI Dashboard</title>
+    <title>Dino Decision AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500&display=swap">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
-        <h1>🦖 Chrome Dino AI Dashboard</h1>
-        <div id="status">Loading...</div>
-        <div id="metrics">
-            <p>Active Agent: <span id="activeAgent">-</span></p>
-            <p>Score: <span id="score">0</span></p>
+<header class="bar">
+    <div class="brand">
+        <div class="mark" aria-hidden="true"><div></div></div>
+        <div>
+            <div class="title">DINO DECISION AI</div>
+            <div class="subtitle">Training &amp; routing · live from models/logs/metrics.db</div>
         </div>
+        <div class="link" id="link" role="status" aria-live="polite"><span class="dot"></span><span id="linkText">CONNECTING</span></div>
     </div>
-    <script src="app.js"></script>
+    <div class="stats">
+        <div class="stat"><div class="label">EPISODES</div><div class="value" id="statEpisodes">–</div></div>
+        <div class="stat"><div class="label">STEPS / S</div><div class="value" id="statSpeed">–</div></div>
+        <div class="stat"><div class="label">MEMORY</div><div class="value" id="statMemory">–</div></div>
+        <div class="stat"><div class="label">UPDATED</div><div class="value" id="statUpdated">–</div></div>
+    </div>
+</header>
+
+<main class="grid">
+    <div class="col">
+        <section class="panel">
+            <div class="head"><span><b>01</b> · AGENTS</span><span>last 10 episodes · random ≈ <span class="random">65</span> steps</span></div>
+            <div class="agents" id="agents"></div>
+        </section>
+        <section class="panel">
+            <div class="head"><span><b>02</b> · LEARNING CURVE · STEPS SURVIVED</span><span>moving average of 20 episodes</span></div>
+            <div class="chart">
+                <svg id="curve" viewBox="0 0 800 260" preserveAspectRatio="none" role="img" aria-label="Episode length per agent over training, with the random baseline"></svg>
+                <div class="legend" id="curveLegend"></div>
+            </div>
+        </section>
+        <section class="panel">
+            <div class="head"><span><b>05</b> · LOG · DECISION STREAM</span><span>router decisions · newest first</span></div>
+            <div class="table" id="decisions"></div>
+        </section>
+    </div>
+    <div class="col side">
+        <section class="panel">
+            <div class="head"><span><b>03</b> · SPEED · STEPS / S</span><span>per checkpoint</span></div>
+            <div class="chart">
+                <svg id="speed" viewBox="0 0 440 150" preserveAspectRatio="none" role="img" aria-label="Training speed per agent"></svg>
+            </div>
+            <div class="head sub"><span>MEMORY · PYTHON + CHROME (MB)</span><span></span></div>
+            <div class="chart">
+                <svg id="memory" viewBox="0 0 440 150" preserveAspectRatio="none" role="img" aria-label="Memory per agent"></svg>
+                <div class="legend" id="perfLegend"></div>
+            </div>
+        </section>
+        <section class="panel">
+            <div class="head"><span><b>04</b> · ROUTER · LAST DECISION</span><span id="routerTime"></span></div>
+            <div class="output" id="router"></div>
+        </section>
+    </div>
+</main>
+<script src="app.js"></script>
 </body>
 </html>
