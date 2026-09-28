@@ -137,3 +137,23 @@ def test_ppo_scores_are_action_probabilities():
 
     assert kind == "probability"
     assert abs(sum(scores.values()) - 1) < 1e-5
+
+
+def test_lockstep_variants_copy_each_variant_with_frames_per_step():
+    lockstep = experiment.VARIANTS["dqn-a2-eps-crop-ls4"]
+    real_time = experiment.VARIANTS["dqn-a2-eps-crop"]
+
+    assert lockstep.env == {**real_time.env, "frames_per_step": 4}
+    assert lockstep.config == real_time.config
+    assert "frames_per_step" not in real_time.env
+
+
+def test_watching_a_lockstep_variant_is_paced_to_real_time(fake_setup, monkeypatch):
+    experiment.run("dqn-a2-ls4", steps=200, checkpoint_every=100, episodes=1)
+    naps = []
+    monkeypatch.setattr(experiment.time, "sleep", naps.append)
+
+    experiment.watch("dqn-a2-ls4", episodes=1, echo=lambda _: None)
+
+    assert len(naps) == 10  # one per step of the 10-step game
+    assert all(0 < nap <= 4 / 60 for nap in naps)

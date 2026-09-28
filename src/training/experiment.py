@@ -60,6 +60,19 @@ VARIANTS = {
     ),
     "ppo-a2-crop": Variant("ppo", env={"n_actions": 2, "crop": CROP_AHEAD}),
 }
+# Lockstep copies (ChromeDinoEnv frames_per_step): the game waits for the
+# agent, so a step costs compute time, not 50ms of real time (~13x faster on
+# one game). Timing differs from real time, so checkpoints do not carry over
+# between the two: these train, evaluate and watch in lockstep only.
+LOCKSTEP_FRAMES = 4
+VARIANTS.update(
+    {
+        f"{name}-ls{LOCKSTEP_FRAMES}": replace(
+            variant, env={**variant.env, "frames_per_step": LOCKSTEP_FRAMES}
+        )
+        for name, variant in list(VARIANTS.items())
+    }
+)
 
 
 def run(
@@ -173,6 +186,9 @@ def watch(
         model = agent_class(env, config)
         model.load(saved.path)
         echo(f"{name} {checkpoint} (step {saved.step}) is playing")
+        frames = variant.env.get("frames_per_step")
+        # lockstep runs as fast as Chrome can: slow it to real time to watch
+        step_seconds = frames / 60 if frames else 0.0
         with MetricsDB() as db:
             obs = env.reset()
             state, start = None, time.perf_counter()
@@ -198,6 +214,7 @@ def watch(
                         distance=near["d"] if near else 999,
                         ms=ms,
                     )
+                time.sleep(max(0.0, step_seconds - (time.perf_counter() - decided)))
                 obs, _, dones, infos = env.step(action)
                 state = infos[0]
                 if dones[0]:

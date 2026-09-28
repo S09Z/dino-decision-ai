@@ -15,6 +15,7 @@ class FakeGame:
         self.actions = []
         self.closed = False
         self.paused = False
+        self.frames = 0  # lockstep frames run
 
     def restart(self):
         self.actions = []
@@ -28,6 +29,9 @@ class FakeGame:
 
     def act(self, action):
         self.actions.append(action)
+
+    def advance(self, frames):
+        self.frames += frames
 
     def state(self):
         return {
@@ -136,3 +140,14 @@ def test_make_dino_env_passes_env_options():
     assert env.action_space.n == 2
     assert env.get_attr("crop") == [(0, 0, 300, 150)]
     env.close()
+
+
+def test_lockstep_steps_advance_the_game_instead_of_waiting():
+    game = FakeGame(crash_after=10)
+    env = ChromeDinoEnv(game=game, frames_per_step=4)  # step_seconds unused
+    env.reset()
+
+    env.step(0)
+    env.step(1)
+
+    assert game.frames == 8

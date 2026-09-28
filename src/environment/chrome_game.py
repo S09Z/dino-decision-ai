@@ -18,7 +18,8 @@ RUNNER = "(Runner.getInstance ? Runner.getInstance() : Runner.instance_)"
 
 # Downscale the game canvas (or its `crop` rectangle [x, y, width, height]) to
 # a size x size grayscale frame inside the page, so only size*size values
-# cross the Playwright bridge per frame.
+# cross the Playwright bridge per frame. They cross as one string, a char per
+# pixel (0-255): 1.6ms per frame, where an array of numbers took 15ms.
 _FRAME_JS = """([size, crop]) => {
   if (!window.__frame) {
     window.__frame = document.createElement('canvas');
@@ -34,9 +35,10 @@ _FRAME_JS = """([size, crop]) => {
   const rgba = ctx.getImageData(0, 0, size, size).data;
   const gray = new Array(size * size);
   for (let i = 0; i < gray.length; i++) {
-    gray[i] = (rgba[4 * i] * 299 + rgba[4 * i + 1] * 587 + rgba[4 * i + 2] * 114) / 1000 | 0;
+    gray[i] = String.fromCharCode(
+      (rgba[4 * i] * 299 + rgba[4 * i + 1] * 587 + rgba[4 * i + 2] * 114) / 1000 | 0);
   }
-  return gray;
+  return gray.join('');
 }""".replace("RUNNER", RUNNER)
 
 # Obstacles not yet passed, nearest first: `d` is the gap from the T-Rex's
@@ -69,6 +71,55 @@ _STATE_JS = """() => {
 }""".replace("RUNNER", RUNNER)
 
 
+# Lockstep: the page's clock stands still and advance(n) runs n frames of
+# 1000/60 ms each, as a 60fps browser would, then returns. The game moves only
+# by performance.now() and requestAnimationFrame (speed grows once per frame),
+# so this plays exactly like real time but as fast as Chrome can compute it,
+# and the game waits for the agent (no pausing during updates). Installed
+# before the page loads; start() switches over once the intro (a real-time CSS
+# animation) is done.
+_CLOCK_JS = """(() => {
+  const realNow = performance.now.bind(performance);
+  const realRequest = window.requestAnimationFrame.bind(window);
+  const realCancel = window.cancelAnimationFrame.bind(window);
+  let now = null;  // virtual time once started
+  let due = new Map();  // callbacks for the next virtual frame
+  const waiting = new Map();  // real-time requests not yet run
+  let nextId = 1;
+  performance.now = () => (now === null ? realNow() : now);
+  window.requestAnimationFrame = (callback) => {
+    if (now === null) {
+      const id = realRequest((t) => { waiting.delete(id); callback(t); });
+      waiting.set(id, callback);
+      return id;
+    }
+    const id = -(nextId++);  // negative: ours
+    due.set(id, callback);
+    return id;
+  };
+  window.cancelAnimationFrame = (id) => {
+    due.delete(id);  // also a real-time request moved over by start()
+    if (waiting.delete(id)) realCancel(id);
+  };
+  window.__clock = {
+    start() {
+      now = realNow();
+      // a frame requested in real time would otherwise run once, at any moment
+      waiting.forEach((callback, id) => { realCancel(id); due.set(id, callback); });
+      waiting.clear();
+    },
+    advance(frames) {
+      for (let i = 0; i < frames; i++) {
+        now += 1000 / 60;
+        const callbacks = due;
+        due = new Map();
+        callbacks.forEach((callback) => callback(now));
+      }
+    },
+  };
+})();"""
+
+
 def _serve_game_file(route: Route) -> None:
     url = route.request.url
     if not url.startswith(GAME_ORIGIN + "/"):
@@ -88,7 +139,8 @@ class ChromeGame:
     `crop` ([x, y, width, height] of the 600x150 canvas) keeps only that part
     of the screen in frames. `game="chrome"` plays Chrome's own chrome://dino
     instead of the vendored copy (for the Laya player, which reads state()
-    and not frames).
+    and not frames). `lockstep=True` (vendored game only) stops the game's
+    clock: advance(frames) moves it on, so the game runs only between calls.
     """
 
     def __init__(
@@ -97,9 +149,14 @@ class ChromeGame:
         frame_size: int = 84,
         crop: Optional[Sequence[int]] = None,
         game: str = "vendored",
+        lockstep: bool = False,
     ):
         if game not in ("vendored", "chrome"):
             raise ValueError(f"game must be 'vendored' or 'chrome', not {game!r}")
+        if lockstep and game != "vendored":
+            raise ValueError("lockstep needs the vendored game")
+        self.lockstep = lockstep
+        self._clock_started = False
         self.frame_size = frame_size
         self.crop = list(crop) if crop else None
         self._ducking = False
@@ -118,6 +175,8 @@ class ChromeGame:
             self._page.wait_for_function("typeof Runner !== 'undefined'")
         else:
             self._page.route("**/*", _serve_game_file)
+            if lockstep:
+                self._page.add_init_script(_CLOCK_JS)
             self._page.goto(f"{GAME_ORIGIN}/index.html")
             self._page.wait_for_function("!!(window.Runner && Runner.instance_)")
         self._started = False
@@ -137,6 +196,15 @@ class ChromeGame:
         self._page.wait_for_function(
             f"(() => {{ const r = {RUNNER}; return !!r && r.playing && !r.crashed; }})()"
         )
+        if self.lockstep and not self._clock_started:
+            # the first run's intro is a real-time CSS animation
+            self._page.wait_for_function("Runner.instance_.activated")
+            self._page.evaluate("() => __clock.start()")
+            self._clock_started = True
+
+    def advance(self, frames: int) -> None:
+        """Lockstep: run the game `frames` frames (1/60s each) and stop."""
+        self._page.evaluate("(n) => __clock.advance(n)", frames)
 
     def act(self, action: int) -> None:
         if action == 2:
@@ -169,7 +237,7 @@ class ChromeGame:
     def frame(self) -> np.ndarray:
         """Current screen as a (frame_size, frame_size, 1) uint8 grayscale image."""
         gray = self._page.evaluate(_FRAME_JS, [self.frame_size, self.crop])
-        return np.array(gray, dtype=np.uint8).reshape(
+        return np.frombuffer(gray.encode("latin-1"), dtype=np.uint8).reshape(
             self.frame_size, self.frame_size, 1
         )
 
