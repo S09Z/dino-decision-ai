@@ -20,6 +20,7 @@ def test_dqn_config_matches_plan():
         "exploration_initial_eps": 1.0,
         "exploration_final_eps": 0.1,
         "target_update_interval": 1000,
+        "gradient_steps": 1,
         "optimize_memory_usage": True,
         "replay_buffer_kwargs": {"handle_timeout_termination": False},
     }

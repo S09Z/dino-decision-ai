@@ -1,4 +1,5 @@
-"""SQLite store for episode, training, performance and routing metrics.
+"""SQLite store for episode, training, performance and routing metrics, and
+the decisions of a player being watched (one row per step).
 
 Usage:
     with MetricsDB() as db:
@@ -6,6 +7,7 @@ Usage:
         rows = db.query_recent_episodes(agent="dqn", limit=10)
 """
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -46,6 +48,23 @@ CREATE TABLE IF NOT EXISTS routing (
     confidence REAL NOT NULL,
     difficulty TEXT,
     source TEXT
+);
+CREATE TABLE IF NOT EXISTS decisions (
+    id INTEGER PRIMARY KEY,
+    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    agent TEXT NOT NULL,
+    game INTEGER NOT NULL,
+    t REAL NOT NULL,
+    answer TEXT NOT NULL,
+    exec TEXT NOT NULL,
+    scores TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    cut REAL,
+    input TEXT,
+    speed REAL,
+    obstacle TEXT,
+    distance INTEGER,
+    ms REAL
 );
 """
 
@@ -136,6 +155,43 @@ class MetricsDB:
             source=source,
         )
 
+    def add_decision(
+        self,
+        agent: str,
+        game: int,
+        t: float,
+        answer: str,
+        exec: str,
+        scores: dict[str, float],
+        kind: str,
+        cut: Optional[float] = None,
+        input: Optional[str] = None,
+        speed: Optional[float] = None,
+        obstacle: Optional[str] = None,
+        distance: Optional[int] = None,
+        ms: Optional[float] = None,
+    ):
+        """One decision of a player being watched, `t` seconds into game
+        `game`: `scores` per option (kind "probability", answered yes at `cut`,
+        or "q_value" for DQN), the `answer` and the key actually pressed
+        (`exec`), what it read (`input`) and the nearest obstacle"""
+        self._insert(
+            "decisions",
+            agent=agent,
+            game=game,
+            t=t,
+            answer=answer,
+            exec=exec,
+            scores=json.dumps(scores),
+            kind=kind,
+            cut=cut,
+            input=input,
+            speed=speed,
+            obstacle=obstacle,
+            distance=distance,
+            ms=ms,
+        )
+
     def query_recent_episodes(
         self, agent: Optional[str] = None, limit: int = 10
     ) -> list[dict]:
@@ -150,7 +206,7 @@ class MetricsDB:
     def history(self, table: str, agent: Optional[str] = None) -> list[dict]:
         """All rows of `table` (episodes, training, performance or routing), oldest
         first, optionally for one agent"""
-        if table not in ("episodes", "training", "performance", "routing"):
+        if table not in ("episodes", "training", "performance", "routing", "decisions"):
             raise ValueError(f"no history for table {table!r}")
         where, params = ("WHERE agent = ?", (agent,)) if agent else ("", ())
         rows = self.conn.execute(f"SELECT * FROM {table} {where} ORDER BY id", params)

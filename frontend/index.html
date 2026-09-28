@@ -26,6 +26,33 @@
     </div>
 </header>
 
+<section class="panel live" aria-label="Live player">
+    <div class="head"><span><b>LIVE</b> · PLAYER · <span id="liveAgent">–</span></span><span id="liveMeta"></span></div>
+    <div class="live-grid" id="liveBody">
+        <div class="cell">
+            <div class="label">01 · <span id="liveInputTitle">INPUT</span></div>
+            <div class="sentence" id="liveInput"></div>
+        </div>
+        <div class="cell">
+            <div class="label">02 · <span id="liveBarsTitle">DETECTORS</span></div>
+            <div class="bars" id="liveBars"></div>
+        </div>
+        <div class="cell">
+            <div class="label">04 · OUTPUT</div>
+            <div class="output" id="liveOutput"></div>
+        </div>
+        <div class="cell wide">
+            <div class="label">03 · TRACE · LAST 100 DECISIONS</div>
+            <svg id="liveTrace" viewBox="0 0 800 130" preserveAspectRatio="none" role="img" aria-label="Scores of each action over the last 100 decisions"></svg>
+            <div class="legend" id="liveLegend"></div>
+        </div>
+        <div class="cell wide">
+            <div class="label">05 · DECISION STREAM · NEWEST FIRST</div>
+            <div class="table" id="liveStream"></div>
+        </div>
+    </div>
+</section>
+
 <main class="grid">
     <div class="col">
         <section class="panel">

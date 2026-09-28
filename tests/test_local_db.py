@@ -1,5 +1,6 @@
 """Tests for the SQLite metrics database"""
 
+import json
 import sqlite3
 
 import pytest
@@ -133,3 +134,26 @@ def test_old_routing_table_gains_difficulty_and_source(tmp_path):
         (row,) = db.history("routing")
 
     assert (row["difficulty"], row["source"]) == ("HARD", "heuristic")
+
+
+def test_decisions_keep_every_step_of_a_watched_player(db):
+    db.add_decision(
+        "laya",
+        game=1,
+        t=9.84,
+        answer="jump",
+        exec="skip:air",
+        scores={"jump": 0.94, "duck": 0.11},
+        kind="probability",
+        cut=0.7,
+        input="The dinosaur is in the air...",
+        speed=6.6,
+        obstacle="cactus",
+        distance=-51,
+        ms=41.2,
+    )
+
+    [row] = db.history("decisions", "laya")
+    assert (row["answer"], row["exec"], row["cut"]) == ("jump", "skip:air", 0.7)
+    assert json.loads(row["scores"]) == {"jump": 0.94, "duck": 0.11}
+    assert (row["obstacle"], row["distance"]) == ("cactus", -51)

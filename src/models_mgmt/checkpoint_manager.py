@@ -11,6 +11,7 @@ Usage:
 
 import json
 import os
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -138,8 +139,18 @@ class CheckpointManager:
         return Latest(**json.loads(index.read_text(encoding="utf-8")))
 
 
-def _save_atomic(save, path: Path) -> None:
-    """save(tmp) then rename tmp to `path` (os.replace is atomic)"""
+def _save_atomic(save, path: Path, tries: int = 20, wait: float = 0.05) -> None:
+    """save(tmp) then rename tmp to `path` (os.replace is atomic). Windows
+    refuses to replace a file another process has open (the dashboard reads
+    the latest index every second, for milliseconds), so retry for up to
+    `tries` x `wait` seconds."""
     tmp = path.with_name(f"{path.stem}.tmp{path.suffix}")  # keeps SB3's suffix
     save(tmp)
-    os.replace(tmp, path)
+    for attempt in range(tries):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(wait)

@@ -21,11 +21,16 @@ logger = get_logger(__name__)
 # RAM per agent, measured on the dev machine: Python + torch + Chrome ~1.3GB
 # (docs/PROFILING_BASELINE.md), plus up to ~1.4GB for DQN's 50k replay buffer
 RAM_NEEDED_GB = {"dqn": 2.7, "ppo": 1.3}
+# Each extra game adds a process with its own Chrome
+RAM_PER_EXTRA_GAME_GB = 0.5
 
 
-def ram_warning(names: Sequence[str], available_gb: float) -> Optional[str]:
+def ram_warning(
+    names: Sequence[str], available_gb: float, n_envs: int = 1
+) -> Optional[str]:
     """A warning when free RAM looks too small to train `names` together"""
     needed = sum(RAM_NEEDED_GB.get(name, 1.3) for name in names)
+    needed += len(names) * (n_envs - 1) * RAM_PER_EXTRA_GAME_GB
     if available_gb >= needed:
         return None
     return (
@@ -36,7 +41,11 @@ def ram_warning(names: Sequence[str], available_gb: float) -> Optional[str]:
 
 
 def train_command(
-    name: str, steps: int, checkpoint_every: int, resume: bool = False
+    name: str,
+    steps: int,
+    checkpoint_every: int,
+    resume: bool = False,
+    n_envs: int = 1,
 ) -> list[str]:
     """`train` for one agent, run in a child process (no progress bar: several
     bars would garble the shared terminal)"""
@@ -52,6 +61,8 @@ def train_command(
         "--checkpoint-every",
         str(checkpoint_every),
         "--no-progress-bar",
+        "--n-envs",
+        str(n_envs),
     ]
     return command + ["--resume"] if resume else command
 
@@ -74,12 +85,13 @@ def train_parallel(
     launch: Callable[[list[str]], subprocess.Popen] = subprocess.Popen,
     poll_seconds: float = 60.0,
     resume: bool = False,
+    n_envs: int = 1,
 ) -> dict[str, int]:
     """Train `names` at the same time; logs progress every `poll_seconds` and
     returns each agent's exit code. Stopping the parent (Ctrl+C) stops all.
     `resume` continues each agent from its latest checkpoint."""
     processes = {
-        name: launch(train_command(name, steps, checkpoint_every, resume))
+        name: launch(train_command(name, steps, checkpoint_every, resume, n_envs))
         for name in names
     }
     try:

@@ -1,5 +1,7 @@
 """Deep Q-Network (DQN) Agent"""
 
+from dataclasses import replace
+
 from stable_baselines3 import DQN
 
 from src.config.dqn_config import DQNConfig
@@ -15,3 +17,8 @@ class DQNAgent(SB3Agent):
 
     algorithm = DQN
     default_config = DQNConfig
+
+    @staticmethod
+    def for_envs(config, n_envs: int):
+        """Each update step brings `n_envs` transitions: train on all of them"""
+        return replace(config, gradient_steps=config.gradient_steps * n_envs)

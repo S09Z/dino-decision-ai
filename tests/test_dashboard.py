@@ -185,3 +185,26 @@ def test_cli_dashboard_starts_the_api(monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert calls == [(("src.dashboard.api:app",), {"host": "127.0.0.1", "port": 8123})]
+
+
+def add_decision(db_path, agent="laya", answer="jump"):
+    with MetricsDB(db_path) as db:
+        db.add_decision(
+            agent, 1, 2.5, answer, answer, {"jump": 0.9, "duck": 0.2}, "probability"
+        )
+
+
+def test_decisions_stream_with_their_scores_decoded(client, paths):
+    db_path, _ = paths
+    add_decision(db_path, answer="hold")
+
+    with client.websocket_connect("/ws") as ws:
+        snapshot = ws.receive_json()
+        add_decision(db_path, answer="jump")
+        message = ws.receive_json()
+
+    assert snapshot["history"]["decisions"][0]["answer"] == "hold"
+    assert message["table"] == "decisions"
+    assert message["rows"][0]["scores"] == {"jump": 0.9, "duck": 0.2}
+    history = client.get("/metrics/history?table=decisions").json()
+    assert [r["answer"] for r in history["rows"]] == ["hold", "jump"]

@@ -1,6 +1,7 @@
 """Read-only queries behind the dashboard, shared by the REST API and the
 WebSocket stream. Timestamps are SQLite's, in UTC."""
 
+import json
 from typing import Any, Optional
 
 import numpy as np
@@ -9,7 +10,7 @@ from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 
-TABLES = ("episodes", "training", "performance", "routing")
+TABLES = ("episodes", "training", "performance", "routing", "decisions")
 # An agent counts as training while its last episode is this recent
 ACTIVE_SECONDS = 120
 # Mean reward and length over this many recent episodes
@@ -20,6 +21,13 @@ def agent_names(db: MetricsDB) -> list[str]:
     """The CLI agents, then any other agent with episodes (experiments)"""
     recorded = [r[0] for r in db.conn.execute("SELECT DISTINCT agent FROM episodes")]
     return list(AGENTS) + sorted(set(recorded) - set(AGENTS))
+
+
+def _dict(table: str, row: Any) -> dict:
+    out = dict(row)
+    if table == "decisions":
+        out["scores"] = json.loads(out["scores"])  # stored as JSON text
+    return out
 
 
 def last_row(db: MetricsDB, table: str, agent: Optional[str]) -> Optional[dict]:
@@ -54,7 +62,7 @@ def tail(
     rows = db.conn.execute(
         f"SELECT * FROM {table} {where} ORDER BY id DESC LIMIT ?", (*params, limit)
     )
-    return [dict(row) for row in reversed(rows.fetchall())]
+    return [_dict(table, row) for row in reversed(rows.fetchall())]
 
 
 def rows_after(db: MetricsDB, table: str, after_id: int) -> list[dict]:
@@ -62,7 +70,7 @@ def rows_after(db: MetricsDB, table: str, after_id: int) -> list[dict]:
     rows = db.conn.execute(
         f"SELECT * FROM {table} WHERE id > ? ORDER BY id", (after_id,)
     )
-    return [dict(row) for row in rows]
+    return [_dict(table, row) for row in rows]
 
 
 def latest(db: MetricsDB) -> dict[str, Any]:

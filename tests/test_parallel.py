@@ -61,6 +61,8 @@ def test_train_command_runs_one_agent_without_progress_bar():
         "--checkpoint-every",
         "50",
         "--no-progress-bar",
+        "--n-envs",
+        "1",
     ]
 
 
@@ -143,8 +145,8 @@ def test_cli_train_all_parallel(monkeypatch):
 
     assert result.exit_code == resumed.exit_code == 0, result.output
     assert calls == [
-        ((["dqn", "ppo"], 10, 5_000), {"resume": False}),
-        ((["dqn", "ppo"], 10, 5_000), {"resume": True}),
+        ((["dqn", "ppo"], 10, 5_000), {"resume": False, "n_envs": 1}),
+        ((["dqn", "ppo"], 10, 5_000), {"resume": True, "n_envs": 1}),
     ]
     assert "dqn: done" in result.output
 

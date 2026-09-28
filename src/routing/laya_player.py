@@ -214,10 +214,12 @@ def play(
     episodes: int,
     log: IO[str],
     echo: Callable[[str], Any] = print,
+    db: Any = None,
 ) -> list[dict]:
     """Play `episodes` games without pausing (the game runs while the player
-    decides); writes each decision to `log`; returns one summary per game"""
-    results = []
+    decides); writes each decision to `log`, and to `db` (a MetricsDB) for the
+    dashboard; returns one summary per game"""
+    results: list[dict] = []
     for _ in range(episodes):
         game.restart()
         start = time.perf_counter()
@@ -231,6 +233,22 @@ def play(
             times.append(decision.ms)
             line = record(state, decision, time.perf_counter() - start)
             log.write(json.dumps(line) + "\n")
+            if db is not None:
+                db.add_decision(
+                    player.name,
+                    len(results) + 1,
+                    line["t"],
+                    decision.laya,
+                    decision.exec,
+                    {"jump": decision.det[0], "duck": decision.det[1]},
+                    "probability",
+                    cut=player.cut,
+                    input=decision.text,
+                    speed=state["speed"],
+                    obstacle=line["obs"],
+                    distance=line["d"],
+                    ms=decision.ms,
+                )
         results.append(
             {
                 "score": state["score"],

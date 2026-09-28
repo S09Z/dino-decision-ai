@@ -72,25 +72,33 @@ def train(
         False, help="Continue from the latest checkpoint (e.g. after a power cut)"
     ),
     progress_bar: bool = typer.Option(True, "--progress-bar/--no-progress-bar"),
+    n_envs: int = typer.Option(
+        1, help="Games per agent, each with its own Chrome (faster, more RAM)"
+    ),
 ):
     """Train agents, recording episodes to the metrics DB and keeping the
-    best checkpoints (real time: ~12 steps/s per agent). Every checkpoint
+    best checkpoints (real time: ~12 steps/s per game; --n-envs N plays N at once). Every checkpoint
     also saves the latest state, which --resume continues from."""
     names = list(AGENTS) if all_agents else [_check_agent(agent)]
+    if profile and n_envs > 1:
+        typer.echo("--profile does not work with --n-envs above 1", err=True)
+        raise typer.Exit(1)
     if parallel and len(names) > 1:
         if profile:
             typer.echo("--profile does not work with --parallel", err=True)
             raise typer.Exit(1)
-        warning = ram_warning(names, psutil.virtual_memory().available / GB)
+        warning = ram_warning(names, psutil.virtual_memory().available / GB, n_envs)
         if warning:
             typer.echo(warning, err=True)
-        codes = train_parallel(names, steps, checkpoint_every, resume=resume)
+        codes = train_parallel(
+            names, steps, checkpoint_every, resume=resume, n_envs=n_envs
+        )
         for name, code in codes.items():
             typer.echo(f"{name}: " + ("done" if code == 0 else f"failed (exit {code})"))
         if any(codes.values()):
             raise typer.Exit(1)
         return
-    env = make_dino_env()
+    env = make_dino_env(n_envs=n_envs)
     profiler = Profiler()
     try:
         if profile:
@@ -246,8 +254,10 @@ def _play_by_state(
     chrome = ChromeGame(headless=not show, game=game)
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with LOG_PATH.open("a", encoding="utf-8") as log:
-            results = play_by_state(chrome, chosen, episodes, log, echo=typer.echo)
+        with LOG_PATH.open("a", encoding="utf-8") as log, MetricsDB() as db:
+            results = play_by_state(
+                chrome, chosen, episodes, log, echo=typer.echo, db=db
+            )
     finally:
         chrome.close()
     scores = [r["score"] for r in results]

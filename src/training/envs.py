@@ -3,21 +3,33 @@
 from typing import Optional
 
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import VecEnv, VecFrameStack
+from stable_baselines3.common.vec_env import (
+    DummyVecEnv,
+    SubprocVecEnv,
+    VecEnv,
+    VecFrameStack,
+)
 
 from src.environment.dino_env import ChromeDinoEnv
 
 
 def make_dino_env(
-    n_stack: int = 4, render_mode: Optional[str] = None, game=None, **env_options
+    n_stack: int = 4,
+    render_mode: Optional[str] = None,
+    game=None,
+    n_envs: int = 1,
+    **env_options,
 ) -> VecEnv:
-    """One ChromeDinoEnv (Monitor-wrapped for episode stats) stacking the last
-    `n_stack` frames into (84, 84, n_stack) observations; `game` replaces
+    """`n_envs` ChromeDinoEnvs (Monitor-wrapped for episode stats) stacking the
+    last `n_stack` frames into (84, 84, n_stack) observations; `game` replaces
     Chrome (used by tests); `env_options` (e.g. n_actions, crop) go to
-    ChromeDinoEnv"""
+    ChromeDinoEnv. Several games each get their own process and Chrome
+    (SubprocVecEnv), so their real-time steps overlap instead of queueing."""
     kwargs = {} if game is None else {"step_seconds": 0, "game": game}
     kwargs.update(env_options)
     env = make_vec_env(
-        lambda: ChromeDinoEnv(render_mode=render_mode, **kwargs), n_envs=1
+        lambda: ChromeDinoEnv(render_mode=render_mode, **kwargs),
+        n_envs=n_envs,
+        vec_env_cls=SubprocVecEnv if n_envs > 1 else DummyVecEnv,
     )
     return VecFrameStack(env, n_stack, channels_order="last")

@@ -1,5 +1,6 @@
 """Tests for checkpoint management and the model registry"""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -232,3 +233,21 @@ def test_works_with_a_real_dqn_agent(manager):
 
     assert Path(saved.path).exists()
     env.close()
+
+
+def test_latest_save_waits_out_a_reader_holding_the_file(manager, monkeypatch):
+    """Windows cannot replace a file another process has open (the dashboard
+    reads <name>_latest.json every second): retry instead of crashing"""
+    real_replace = os.replace
+    failures = [PermissionError(5, "Access is denied")] * 2
+
+    def replace(src, dst):
+        if failures:
+            raise failures.pop()
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+
+    manager.save_latest(FakeAgent(), "dqn", step=10, episodes=1)
+
+    assert manager.latest("dqn").step == 10

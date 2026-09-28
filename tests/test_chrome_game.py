@@ -28,7 +28,9 @@ class FakePage:
         self.keyboard = FakeKeyboard()
         self.scripts = []
         self.args = []
-        self.frame = list(range(size * size))
+        # the frame script returns one char per pixel value
+        self.frame = "".join(chr(i) for i in range(size * size))
+        self.waited = []
 
     def evaluate(self, script, *args):
         self.scripts.append(script)
@@ -36,7 +38,7 @@ class FakePage:
         return self.frame if args else {"crashed": False}
 
     def wait_for_function(self, script):
-        pass
+        self.waited.append(script)
 
 
 @pytest.fixture
@@ -48,6 +50,8 @@ def game():
     game._ducking = False
     game._started = False
     game._paused = False
+    game.lockstep = False
+    game._clock_started = False
     game._page = FakePage(size=4)
     return game
 
@@ -126,3 +130,21 @@ def test_frame_crop_is_passed_to_the_page(game):
 def test_unknown_game_is_rejected_before_launching_chrome():
     with pytest.raises(ValueError, match="vendored"):
         ChromeGame(game="dino.example")
+
+
+def test_lockstep_needs_the_vendored_game():
+    with pytest.raises(ValueError, match="vendored"):
+        ChromeGame(game="chrome", lockstep=True)
+
+
+def test_lockstep_clock_starts_after_the_intro_then_advances_on_request(game):
+    game.lockstep = True
+
+    game.restart()
+    game.restart()  # started once only
+    game.advance(4)
+
+    assert game._page.waited.count("Runner.instance_.activated") == 1
+    assert game._page.scripts.count("() => __clock.start()") == 1
+    assert game._page.scripts[-1] == "(n) => __clock.advance(n)"
+    assert game._page.args[-1] == (4,)
