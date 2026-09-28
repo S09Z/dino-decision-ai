@@ -113,6 +113,62 @@ def test_load_best_without_checkpoints_raises(manager):
         manager.load_best(FakeAgent(), "dqn")
 
 
+class FakeOffPolicyModel(FakeAgent):
+    """Like an SB3 DQN model: has a replay buffer to save"""
+
+    replay_buffer = ["transitions"]
+
+    def save_replay_buffer(self, path):
+        Path(path).write_text("buffer")
+
+
+def test_save_latest_overwrites_the_previous_one(manager):
+    manager.save_latest(FakeAgent("first"), "ppo", step=100, episodes=3)
+    latest = manager.save_latest(FakeAgent("second"), "ppo", step=200, episodes=7)
+
+    assert manager.latest("ppo") == latest
+    assert (latest.step, latest.episodes, latest.buffer) == (200, 7, None)
+    assert Path(latest.path).read_text() == "second"
+    files = sorted(p.name for p in manager.directory.iterdir())
+    assert files == ["ppo_latest.json", "ppo_latest.zip"]  # no temporary files
+
+
+def test_save_latest_keeps_the_replay_buffer(manager):
+    latest = manager.save_latest(FakeOffPolicyModel(), "dqn", step=100, episodes=3)
+
+    assert latest.buffer is not None
+    assert Path(latest.buffer).read_text() == "buffer"
+
+
+def test_latest_is_none_before_any_run(manager):
+    assert manager.latest("dqn") is None
+
+
+def test_power_cut_while_saving_keeps_the_previous_latest(manager):
+    manager.save_latest(FakeAgent("good"), "dqn", step=100, episodes=3)
+
+    class PowerCut(FakeAgent):
+        def save(self, path):
+            Path(path).write_text("half-written")
+            raise OSError("power cut")
+
+    with pytest.raises(OSError):
+        manager.save_latest(PowerCut(), "dqn", step=200, episodes=5)
+
+    latest = manager.latest("dqn")
+    assert latest is not None and latest.step == 100
+    assert Path(latest.path).read_text() == "good"
+
+
+def test_pruning_best_checkpoints_keeps_the_latest(manager):
+    manager.save(FakeAgent(), "dqn", step=100, reward=-50.0)
+    latest = manager.save_latest(FakeAgent(), "dqn", step=100, episodes=3)
+
+    manager.prune("dqn", keep=0)
+
+    assert Path(latest.path).exists()
+
+
 @pytest.mark.parametrize(
     "current, bump, expected",
     [

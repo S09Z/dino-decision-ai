@@ -1,12 +1,16 @@
-"""Keep only the best N training checkpoints per agent.
+"""Keep only the best N training checkpoints per agent, plus the latest one
+to resume an interrupted run from.
 
 Usage:
     manager = CheckpointManager(keep_best_n=5)
     manager.save(agent, name="dqn", step=10_000, reward=-80.0)
     manager.load_best(agent, name="dqn")
+    manager.save_latest(model, name="dqn", step=10_000, episodes=150)
+    manager.latest("dqn")  # -> Latest(step=10_000, ...) or None
 """
 
 import json
+import os
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +25,18 @@ class Checkpoint:
     step: int
     reward: float  # higher is better
     path: str
+    timestamp: str
+
+
+@dataclass
+class Latest:
+    """Where an interrupted run stopped: enough to resume it"""
+
+    name: str
+    step: int
+    episodes: int  # episodes recorded so far, so numbering continues
+    path: str
+    buffer: Optional[str]  # replay buffer (off-policy agents such as DQN)
     timestamp: str
 
 
@@ -88,3 +104,42 @@ class CheckpointManager:
             raise FileNotFoundError(f"No checkpoints for {name!r} in {self.directory}")
         agent.load(best.path)
         return best
+
+    def save_latest(self, model, name: str, step: int, episodes: int) -> Latest:
+        """Overwrite `name`'s latest checkpoint with an SB3 model and, if it has
+        one, its replay buffer. Each file is written under a temporary name and
+        then renamed, so a crash or power cut mid-save leaves the previous
+        latest checkpoint intact."""
+        path = self.directory / f"{name}_latest.zip"
+        _save_atomic(model.save, path)
+        buffer = None
+        if getattr(model, "replay_buffer", None) is not None:
+            buffer = self.directory / f"{name}_latest_buffer.pkl"
+            _save_atomic(model.save_replay_buffer, buffer)
+        latest = Latest(
+            name,
+            step,
+            episodes,
+            path.as_posix(),
+            buffer.as_posix() if buffer else None,
+            datetime.now().isoformat(timespec="seconds"),
+        )
+        _save_atomic(
+            lambda tmp: tmp.write_text(json.dumps(asdict(latest)), encoding="utf-8"),
+            self.directory / f"{name}_latest.json",
+        )
+        return latest
+
+    def latest(self, name: str) -> Optional[Latest]:
+        """`name`'s latest checkpoint, or None if it has none"""
+        index = self.directory / f"{name}_latest.json"
+        if not index.exists():
+            return None
+        return Latest(**json.loads(index.read_text(encoding="utf-8")))
+
+
+def _save_atomic(save, path: Path) -> None:
+    """save(tmp) then rename tmp to `path` (os.replace is atomic)"""
+    tmp = path.with_name(f"{path.stem}.tmp{path.suffix}")  # keeps SB3's suffix
+    save(tmp)
+    os.replace(tmp, path)

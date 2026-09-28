@@ -40,6 +40,79 @@ def test_train_records_metrics_and_saves_checkpoints():
     assert best is not None and best.step in (100, 200, 300)
 
 
+def test_resume_continues_an_interrupted_run():
+    runner.invoke(cli.app, ["train", "--steps", "200", "--checkpoint-every", "100"])
+
+    result = runner.invoke(
+        cli.app, ["train", "--steps", "300", "--checkpoint-every", "100", "--resume"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Resuming dqn from step 200 (20 episodes" in result.output
+    assert "300 steps, 30 episodes" in result.output
+    with MetricsDB() as db:
+        numbers = db.conn.execute("SELECT episode FROM episodes ORDER BY id")
+        assert [row[0] for row in numbers] == list(range(1, 31))
+        training = db.conn.execute("SELECT step FROM training")
+        assert [row[0] for row in training] == [100, 200, 300]
+
+
+def test_resume_ppo(small_ppo):
+    args = ["train", "--agent", "ppo", "--checkpoint-every", "32"]
+    runner.invoke(cli.app, args + ["--steps", "32"])
+
+    result = runner.invoke(cli.app, args + ["--steps", "64", "--resume"])
+
+    assert result.exit_code == 0, result.output
+    assert "Resuming ppo from step 32" in result.output
+    assert "Trained ppo for 64 steps" in result.output
+
+
+def test_resume_without_a_checkpoint_starts_from_zero():
+    result = runner.invoke(
+        cli.app, ["train", "--steps", "100", "--checkpoint-every", "100", "--resume"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "No latest checkpoint for dqn; starting from step 0" in result.output
+    assert "100 steps, 10 episodes" in result.output
+
+
+def test_resume_of_a_finished_run_trains_nothing():
+    runner.invoke(cli.app, ["train", "--steps", "100", "--checkpoint-every", "100"])
+
+    result = runner.invoke(cli.app, ["train", "--steps", "100", "--resume"])
+
+    assert result.exit_code == 0, result.output
+    assert "dqn already trained for 100 steps" in result.output
+
+
+def test_training_from_scratch_says_it_overwrites_the_latest():
+    runner.invoke(cli.app, ["train", "--steps", "100", "--checkpoint-every", "100"])
+
+    result = runner.invoke(cli.app, ["train", "--steps", "100"])
+
+    assert "its latest checkpoint (step 100) will be overwritten" in result.output
+
+
+def test_game_is_paused_while_the_latest_checkpoint_saves(monkeypatch):
+    game = FakeGame(10)
+    monkeypatch.setattr(cli, "make_dino_env", lambda: make_dino_env(game=game))
+    paused_while_saving = []
+    save_latest = CheckpointManager.save_latest
+
+    def spy(self, *args):
+        paused_while_saving.append(game.paused)
+        return save_latest(self, *args)
+
+    monkeypatch.setattr(CheckpointManager, "save_latest", spy)
+
+    runner.invoke(cli.app, ["train", "--steps", "200", "--checkpoint-every", "100"])
+
+    assert paused_while_saving == [True, True]
+    assert not game.paused  # playing again after each save
+
+
 def test_eval_loads_best_checkpoint():
     runner.invoke(cli.app, ["train", "--steps", "100", "--checkpoint-every", "100"])
 
@@ -133,4 +206,5 @@ def test_clean_keeps_best_n():
 
     assert result.exit_code == 0, result.output
     assert "dqn: removed 3, kept 1" in result.output
-    assert len(list(Path("models/checkpoints").glob("*.zip"))) == 1
+    assert len(list(Path("models/checkpoints").glob("dqn_step*.zip"))) == 1
+    assert Path("models/checkpoints/dqn_latest.zip").exists()  # still resumable

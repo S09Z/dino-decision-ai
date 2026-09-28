@@ -14,7 +14,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
 | 2 Core RL + monitoring | 12 | 13 | Exit criteria met; only 2.1's "better than random" check is open (needs a longer run) |
 | 3 Caching & testing | 4 | 5 | Exit criteria met; 3.1 dropped (frames never repeat); only 3.2's "better than random" check is open |
-| 4 Optimization & comparison | 2 | 4 | 4.1 and 4.2 done; 4.3/4.4 need long runs on the Windows machine |
+| 4 Optimization & comparison | 3 | 5 | 4.1, 4.2 and 4.5 (resume) done; 4.3/4.4 need long runs on the Windows machine |
 | 5 Multi-agent routing | 3 | 4 | 5.1, 5.2 and 5.4 done; 5.3 Laya code done, measuring it on Windows |
 | 6–8 | 0 | 11 | Not started |
 
@@ -136,6 +136,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 
 - [x] 4.1 Parallel training (`dino-ai train --all --parallel`, `src/training/parallel.py`): each agent in its own process with its own Chrome, since two agents cannot share one real-time game; a free-RAM check before starting and a status line every minute (episodes, last-10 reward, RAM of all processes). Checkpoint indexes are now per agent, fixing a lost-update race between processes (reproduced in a test). "Auto batch size" dropped: the model holds ~13MB of GPU memory, so batch size is not what limits resources; RAM (Chrome + replay buffer) is, and the RAM check covers it. Real run on the Mac: DQN + PPO together used 2.0–2.5GB — 4–5h
 - [x] 4.2 Deep profiling: `dino-ai report` writes an HTML page comparing agents from `MetricsDB` (summary table, learning curve, speed and memory charts) with a leak check: mean memory in the last third of training vs the middle third, flagged above +20% (the first third is warm-up). Performance rows now record agent and step, so parallel runs stay apart (older DBs are upgraded). Measured 3,000 real-Chrome steps: Python heap saw-tooths 240–640MB with GC (trend −49MB per 10k steps), total RSS climbs for ~1,500 steps then stays at 1.9–2.4GB: no leak; a straight-line fit misreads that as +1,584MB per 10k steps, hence the thirds comparison. Line profiler not added: the main cost after the step wait is the frame grab inside Chrome's JS (2.2 baseline), which a Python line profiler cannot see — 3–4h
+- [x] 4.5 Resume after a crash or power cut: every checkpoint also overwrites `models/checkpoints/<agent>_latest.zip` (plus DQN's replay buffer, `<agent>_latest_buffer.pkl`, ~1.4GB) and `<agent>_latest.json` (step, episodes); files are written under a temporary name and renamed, so a power cut mid-save keeps the previous one. The game is paused while saving. `train --resume` (also with `--all --parallel`) continues from it: same step count and epsilon schedule, episode numbers carry on; `--steps` is the total. `clean` keeps the latest checkpoint
 - [ ] 4.3 DQN vs PPO: 250K steps each, compare metrics, write up findings — 4–6h
 - [ ] 4.4 Hyperparameter tuning (lr, entropy coef, GAE λ), ablations, document — 8–10h
 

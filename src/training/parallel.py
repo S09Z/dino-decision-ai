@@ -35,10 +35,12 @@ def ram_warning(names: Sequence[str], available_gb: float) -> Optional[str]:
     )
 
 
-def train_command(name: str, steps: int, checkpoint_every: int) -> list[str]:
+def train_command(
+    name: str, steps: int, checkpoint_every: int, resume: bool = False
+) -> list[str]:
     """`train` for one agent, run in a child process (no progress bar: several
     bars would garble the shared terminal)"""
-    return [
+    command = [
         sys.executable,
         "-m",
         "src.cli.main",
@@ -51,6 +53,7 @@ def train_command(name: str, steps: int, checkpoint_every: int) -> list[str]:
         str(checkpoint_every),
         "--no-progress-bar",
     ]
+    return command + ["--resume"] if resume else command
 
 
 def status_line(db: MetricsDB, names: Sequence[str]) -> str:
@@ -70,11 +73,14 @@ def train_parallel(
     checkpoint_every: int,
     launch: Callable[[list[str]], subprocess.Popen] = subprocess.Popen,
     poll_seconds: float = 60.0,
+    resume: bool = False,
 ) -> dict[str, int]:
     """Train `names` at the same time; logs progress every `poll_seconds` and
-    returns each agent's exit code. Stopping the parent (Ctrl+C) stops all."""
+    returns each agent's exit code. Stopping the parent (Ctrl+C) stops all.
+    `resume` continues each agent from its latest checkpoint."""
     processes = {
-        name: launch(train_command(name, steps, checkpoint_every)) for name in names
+        name: launch(train_command(name, steps, checkpoint_every, resume))
+        for name in names
     }
     try:
         with MetricsDB() as db:
