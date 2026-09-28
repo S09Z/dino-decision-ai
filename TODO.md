@@ -16,9 +16,9 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 3 Caching & testing | 4 | 5 | Exit criteria met; 3.1 dropped (frames never repeat); only 3.2's "better than random" check is open |
 | 4 Optimization & comparison | 3 | 5 | 4.1, 4.2 and 4.5 (resume) done; 4.3/4.4 need long runs on the Windows machine |
 | 5 Multi-agent routing | 3 | 4 | 5.1, 5.2 and 5.4 done; 5.3 Laya code done, measuring it on Windows |
-| 6–8 | 0 | 11 | Not started |
+| 6–8 | 1 | 11 | 6.1 (dashboard API) done; 6.2–6.4 and Phases 7–8 not started |
 
-**Next up:** a long `dino-ai train --all --parallel` run on the Windows machine, then `dino-ai eval --compare` and `dino-ai report`, to close the DQN and PPO "better than random" checks and start 4.3. Also on Windows: `python -m src.routing.laya_benchmark` and `play --laya` to close 5.3. Here: Phase 6 (dashboard).
+**Next up:** a long `dino-ai train --all --parallel` run on the Windows machine, then `dino-ai eval --compare` and `dino-ai report`, to close the DQN and PPO "better than random" checks and start 4.3. Also on Windows: `python -m src.routing.laya_benchmark` and `play --laya` to close 5.3. Here: Phase 6 (dashboard): 6.1 API done, next 6.2 (streaming) and 6.3 (frontend).
 **Branches:** Phase 0 is PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1), merged into `main`; Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), based on `main`; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is draft PR [#5](https://github.com/S09Z/dino-decision-ai/pull/5), stacked on #4; Phase 2.1 is draft PR [#6](https://github.com/S09Z/dino-decision-ai/pull/6), stacked on #5; Phase 2.2 is draft PR [#7](https://github.com/S09Z/dino-decision-ai/pull/7), stacked on #6; Phase 2.3 is draft PR [#8](https://github.com/S09Z/dino-decision-ai/pull/8), stacked on #7; Phase 2.4 is draft PR [#9](https://github.com/S09Z/dino-decision-ai/pull/9), stacked on #8; Phase 2.5 is draft PR [#10](https://github.com/S09Z/dino-decision-ai/pull/10), stacked on #9; Phase 3.2 is draft PR [#11](https://github.com/S09Z/dino-decision-ai/pull/11), stacked on #10; Phase 3.3 is draft PR [#13](https://github.com/S09Z/dino-decision-ai/pull/13), stacked on #11 (#12 was the user's merge of 1.5 + 1.2 into `main`); Phase 3.4 is draft PR [#14](https://github.com/S09Z/dino-decision-ai/pull/14), stacked on #13; Windows 11 support ([docs/WINDOWS.md](docs/WINDOWS.md)) is draft PR [#15](https://github.com/S09Z/dino-decision-ai/pull/15), stacked on #14; Phase 4.1 is draft PR [#16](https://github.com/S09Z/dino-decision-ai/pull/16), stacked on #15; Phase 4.2 is draft PR [#17](https://github.com/S09Z/dino-decision-ai/pull/17), stacked on #16; Phase 5.1 is draft PR [#18](https://github.com/S09Z/dino-decision-ai/pull/18), stacked on #17; Phase 5.2 is draft PR [#19](https://github.com/S09Z/dino-decision-ai/pull/19), stacked on #18; Phase 5.3 is draft PR [#20](https://github.com/S09Z/dino-decision-ai/pull/20), stacked on #19; Phase 5.4 is `claude/routing-5-4`, stacked on #20.
 
 ---
@@ -33,7 +33,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] Fix PLAN.md: `laya>=1.0.0` → `>=0.3.13`; verify the Laya link/homepage (real package: huggingface.co/convaiinnovations/laya)
 - [x] Declare `typer` in `pyproject.toml` + `requirements.txt`
 - [x] Get `make lint` green: black/isort (black profile), `types-psutil`, `cpu_count() or 1`; Makefile now uses `poetry run`
-- [ ] Fix Docker: compose runs `src.dashboard.api` (missing) while Dockerfile `CMD` runs `main.py`; align once the dashboard exists — blocked on Phase 6.1
+- [ ] Fix Docker: compose runs `src.dashboard.api` (missing) while Dockerfile `CMD` runs `main.py`; align once the dashboard exists — unblocked by 6.1 (`uvicorn src.dashboard.api:app` now works); the image still has no Chrome (8.2)
 - [x] Remove stray `src/frontend/` (real UI is top-level `frontend/`)
 - [ ] Add a `.env` loader dependency if config will read env vars (e.g. `python-dotenv`) — deferred: nothing reads env vars yet
 - [x] Fix observation space: kept one `(84, 84, 1)` frame (stack via `VecFrameStack` at training); fixed `reset(seed, options)` so `check_env` passes; added `tests/test_environment.py`
@@ -159,7 +159,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 
 ## Phase 6 — Dashboard UI (12–16h)
 
-- [ ] 6.1 `src/dashboard/api.py`: `/health`, `/agents/status`, `/metrics/latest`, `/metrics/history`, `WS /ws` (`make dashboard` currently fails: file missing) — 3–4h
+- [x] 6.1 `src/dashboard/api.py` (FastAPI, read-only over `MetricsDB` and the checkpoints, so it runs beside training): `/health`, `/agents/status` (training/idle from the last episode's age, episodes, best checkpoint, resume step; experiment variants listed after dqn/ppo), `/metrics/latest` (last episode, last-10 mean reward/length, last performance and training rows, last routing decision), `/metrics/history?table=&agent=&limit=` (last rows, oldest first), `WS /ws` (a `/metrics/latest` snapshot on connect and on each change, checked every second; 100ms streaming is 6.2). `dino-ai dashboard --port` / `make dashboard` start it. Checked against the live DB during the resumed 100k run: both agents `training`, history in 0.2s. Timestamps are UTC — 3–4h
 - [ ] 6.2 `ws_handler.py`: 100ms streaming, decision log, reconnect handling — 2–3h
 - [ ] 6.3 Frontend (vanilla JS): live agent switching, metrics, decision log, charts — 4–6h
 - [ ] 6.4 Integration: API ↔ training, WS ↔ metrics, latency <100ms, load test — 2–3h

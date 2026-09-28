@@ -5,6 +5,7 @@ from typing import Optional
 
 import psutil
 import typer
+import uvicorn
 
 from src.evaluation.evaluate import RandomPolicy, evaluate, evaluate_routed, report
 from src.models import AGENTS
@@ -269,9 +270,10 @@ def profile(steps: int = 500, out: Optional[Path] = None):
 
 @app.command()
 def dashboard(port: int = 8000):
-    """Start dashboard"""
-    typer.echo(f"Starting dashboard on port {port}...")
-    # TODO: Start dashboard
+    """Start the dashboard API on http://localhost:<port> (read-only, safe to
+    run while training)"""
+    typer.echo(f"Starting dashboard on http://localhost:{port} ...")
+    uvicorn.run("src.dashboard.api:app", host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":
