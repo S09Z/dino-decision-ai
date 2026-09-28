@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from src.cli import main as cli
+from src.monitoring.local_db import MetricsDB
 from src.routing import laya_player_benchmark
 from src.routing.laya_player import (
     QUESTIONS,
@@ -305,3 +306,17 @@ def test_benchmark_report_marks_wrong_answers():
     assert text.startswith("# Laya player benchmark")
     assert "| nothing ahead | hold | jump (wrong) | hold | hold |" in text
     assert "| cactus inside | jump | jump | hold (wrong) | hold (wrong) |" in text
+
+
+def test_play_writes_each_decision_for_the_dashboard():
+    game = ScriptedGame([[state(cactus(50)), state(crashed=True, score=5)]])
+
+    with MetricsDB(":memory:") as db:
+        play(game, RulePlayer(lead=14), 1, io.StringIO(), echo=lambda _: None, db=db)
+        [row] = db.history("decisions", "rule")
+
+    assert (row["game"], row["answer"], row["exec"]) == (1, "jump", "jump")
+    assert json.loads(row["scores"]) == {"jump": 1.0, "duck": 0.0}
+    assert (row["kind"], row["cut"]) == ("probability", 0.7)
+    assert row["input"].startswith("The dinosaur is on the ground")
+    assert (row["obstacle"], row["distance"]) == ("cactus", 50)

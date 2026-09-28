@@ -8,21 +8,25 @@ greedily and the result is appended to models/logs/experiments.jsonl.
 Usage:
     python -m src.training.experiment dqn-a2 --steps 100000 [--resume] [--n-envs 4]
     python -m src.training.experiment dqn-a2 --eval-only
+    python -m src.training.experiment dqn-a2 --watch [--checkpoint latest]
 """
 
 import json
+import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
+import torch
 import typer
 
 from src.evaluation.evaluate import evaluate
 from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
+from src.routing.laya_player import ACTIONS, describe, threat
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
 
@@ -130,6 +134,91 @@ def run(
     return result
 
 
+def action_scores(model: Any, obs: Any) -> tuple[dict[str, float], str]:
+    """What the policy thinks of each action for `obs`: DQN's Q-values, or
+    PPO's action probabilities"""
+    policy = model.policy
+    tensor, _ = policy.obs_to_tensor(obs)
+    with torch.no_grad():
+        if hasattr(policy, "q_net"):
+            values, kind = policy.q_net(tensor)[0], "q_value"
+        else:
+            values = policy.get_distribution(tensor).distribution.probs[0]
+            kind = "probability"
+    return {name: float(v) for name, v in zip(ACTIONS, values)}, kind
+
+
+def watch(
+    name: str,
+    checkpoint: str = "best",
+    episodes: int = 5,
+    echo: Callable[[str], Any] = print,
+) -> list[int]:
+    """Play `episodes` games greedily with variant `name`'s best or latest
+    checkpoint in a visible Chrome. Each game goes to the metrics DB as
+    `<name>-watch`, and so does every decision (the value of each action and
+    the one taken), so the dashboard shows it live. Returns their lengths."""
+    variant = VARIANTS[name]
+    agent_class = AGENTS[variant.agent]
+    config = replace(agent_class.default_config(), **variant.config)
+    checkpoints = CheckpointManager()
+    saved = (
+        checkpoints.latest(name) if checkpoint == "latest" else checkpoints.best(name)
+    )
+    if saved is None:
+        raise FileNotFoundError(f"No {checkpoint} checkpoint for {name}")
+    env = make_dino_env(render_mode="human", **variant.env)
+    lengths: list[int] = []
+    try:
+        model = agent_class(env, config)
+        model.load(saved.path)
+        echo(f"{name} {checkpoint} (step {saved.step}) is playing")
+        with MetricsDB() as db:
+            obs = env.reset()
+            state, start = None, time.perf_counter()
+            while len(lengths) < episodes:
+                decided = time.perf_counter()
+                action, _ = model.predict(obs)
+                scores, kind = action_scores(model.model, obs)
+                ms = (time.perf_counter() - decided) * 1000
+                if state is not None:  # the game state these frames show
+                    answer = list(ACTIONS)[int(action[0])]
+                    near = threat(state)
+                    db.add_decision(
+                        f"{name}-watch",
+                        len(lengths) + 1,
+                        round(time.perf_counter() - start, 2),
+                        answer,
+                        answer,
+                        scores,
+                        kind,
+                        input=describe(state),
+                        speed=state["speed"],
+                        obstacle=near["kind"] if near else None,
+                        distance=near["d"] if near else 999,
+                        ms=ms,
+                    )
+                obs, _, dones, infos = env.step(action)
+                state = infos[0]
+                if dones[0]:
+                    state, start = None, time.perf_counter()
+                    episode = infos[0]["episode"]  # added by Monitor
+                    lengths.append(int(episode["l"]))
+                    db.add_episode(
+                        f"{name}-watch",
+                        len(lengths),
+                        float(episode["r"]),
+                        int(episode["l"]),
+                    )
+                    echo(
+                        f"game {len(lengths)}: {lengths[-1]} steps,"
+                        f" score {infos[0]['score']:.0f}"
+                    )
+    finally:
+        env.close()
+    return lengths
+
+
 def main(
     name: str,
     steps: int = 100_000,
@@ -138,10 +227,22 @@ def main(
     episodes: int = 20,
     eval_only: bool = False,
     n_envs: int = typer.Option(1, help="Games at once while training"),
+    watch_play: bool = typer.Option(
+        False, "--watch", help="Play --episodes games in a visible Chrome"
+    ),
+    checkpoint: str = typer.Option("best", help="--watch: best or latest"),
 ) -> None:
     if name not in VARIANTS:
         typer.echo(f"Unknown variant {name!r}; available: {', '.join(VARIANTS)}")
         raise typer.Exit(1)
+    if watch_play:
+        try:
+            lengths = watch(name, checkpoint, episodes, echo=typer.echo)
+        except FileNotFoundError as error:
+            typer.echo(f"{error}; train it first", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"mean {np.mean(lengths):.0f} steps over {len(lengths)} games")
+        return
     result = run(name, steps, checkpoint_every, resume, episodes, eval_only, n_envs)
     for kind, row in result["evaluated"].items():
         typer.echo(

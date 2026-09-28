@@ -30,7 +30,14 @@ class FakeGame:
         self.actions.append(action)
 
     def state(self):
-        return {"crashed": len(self.actions) >= self.crash_after, "score": 0}
+        return {
+            "crashed": len(self.actions) >= self.crash_after,
+            "score": 0,
+            "speed": 6.0,
+            "jumping": False,
+            "ducking": False,
+            "obstacles": [{"type": "cactus", "d": 50, "w": 17, "y": 105, "h": 35}],
+        }
 
     def frame(self):
         return np.zeros((84, 84, 1), dtype=np.uint8)

@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from src.config.local_config import LocalConfig
 from src.models_mgmt.checkpoint_manager import CheckpointManager
+from src.monitoring.local_db import MetricsDB
 from src.training import experiment
 from src.training.envs import make_dino_env
 from tests.test_environment import FakeGame
@@ -86,3 +87,53 @@ def test_cli_prints_results_and_rejects_unknown_variants():
     unknown = runner.invoke(app, ["nope"])
     assert unknown.exit_code == 1
     assert "Unknown variant 'nope'" in unknown.output
+
+
+def test_watch_plays_the_best_checkpoint_in_a_visible_chrome(fake_setup):
+    experiment.run("dqn-a2", steps=200, checkpoint_every=100, episodes=1)
+    fake_setup.clear()
+
+    lengths = experiment.watch("dqn-a2", episodes=2, echo=lambda _: None)
+
+    assert lengths == [10, 10]  # FakeGame(10)
+    assert fake_setup == [{"render_mode": "human", "n_actions": 2}]
+    with MetricsDB() as db:
+        assert db.episode_count("dqn-a2-watch") == 2  # shown on the dashboard
+
+
+def test_watch_without_a_checkpoint_says_to_train_first():
+    app = experiment.typer.Typer()
+    app.command()(experiment.main)
+
+    result = CliRunner().invoke(app, ["dqn-a2", "--watch"])
+
+    assert result.exit_code == 1
+    assert "No best checkpoint for dqn-a2; train it first" in result.output
+
+
+def test_watch_records_what_the_agent_thinks_of_each_action(fake_setup):
+    experiment.run("dqn-a2", steps=200, checkpoint_every=100, episodes=1)
+
+    experiment.watch("dqn-a2", episodes=1, echo=lambda _: None)
+
+    with MetricsDB() as db:
+        rows = db.history("decisions", "dqn-a2-watch")
+    assert len(rows) == 9  # every step of the 10-step game but the first
+    scores = json.loads(rows[0]["scores"])
+    assert set(scores) == {"hold", "jump"}  # dqn-a2 has two actions
+    assert rows[0]["kind"] == "q_value"
+    assert rows[0]["answer"] == max(scores, key=scores.get)  # greedy
+    assert rows[0]["obstacle"] == "cactus"
+
+
+def test_ppo_scores_are_action_probabilities():
+    from src.config.ppo_config import PPOConfig
+    from src.models.ppo_agent import PPOAgent
+
+    env = make_dino_env(game=FakeGame(10), n_actions=2)
+    model = PPOAgent(env, PPOConfig(n_steps=64, batch_size=16), "cpu").model
+
+    scores, kind = experiment.action_scores(model, env.reset())
+
+    assert kind == "probability"
+    assert abs(sum(scores.values()) - 1) < 1e-5

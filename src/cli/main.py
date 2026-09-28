@@ -254,8 +254,10 @@ def _play_by_state(
     chrome = ChromeGame(headless=not show, game=game)
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with LOG_PATH.open("a", encoding="utf-8") as log:
-            results = play_by_state(chrome, chosen, episodes, log, echo=typer.echo)
+        with LOG_PATH.open("a", encoding="utf-8") as log, MetricsDB() as db:
+            results = play_by_state(
+                chrome, chosen, episodes, log, echo=typer.echo, db=db
+            )
     finally:
         chrome.close()
     scores = [r["score"] for r in results]

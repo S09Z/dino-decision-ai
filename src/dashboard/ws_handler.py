@@ -3,7 +3,8 @@
 On connect the client gets a snapshot; after that, every `interval` seconds
 (100ms by default) the rows added to each table since the last check, and
 every `status_every` seconds the agents' status and latest metrics. Routing
-rows are the decision log. A client that reconnects simply gets a new
+rows are the router's log; decisions rows are a watched player's every step
+(what it read, how it scored each action, what it pressed). A client that reconnects simply gets a new
 snapshot, so it never has to replay what it missed.
 
 Messages (JSON):
@@ -23,7 +24,13 @@ from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 
 # Rows of each table in the snapshot (enough for the charts and the log)
-HISTORY = {"episodes": 3000, "training": 200, "performance": 500, "routing": 100}
+HISTORY = {
+    "episodes": 3000,
+    "training": 200,
+    "performance": 500,
+    "routing": 100,
+    "decisions": 200,
+}
 
 
 async def stream(
