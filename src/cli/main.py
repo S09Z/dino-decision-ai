@@ -7,6 +7,7 @@ import psutil
 import typer
 import uvicorn
 
+from src.environment.chrome_game import ChromeGame
 from src.evaluation.evaluate import RandomPolicy, evaluate, evaluate_routed, report
 from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager, Latest
@@ -16,6 +17,8 @@ from src.profiling.baseline import instrument
 from src.profiling.profiler import Profiler
 from src.routing.agent_manager import AgentManager
 from src.routing.laya_classifier import LayaClassifier
+from src.routing.laya_player import LEAD, LOG_PATH, LayaPlayer, RulePlayer
+from src.routing.laya_player import play as play_by_state
 from src.routing.laya_router import Classifier, LayaRouter
 from src.training.callbacks import TrainingMonitor
 from src.training.envs import make_dino_env
@@ -181,9 +184,21 @@ def play(
     laya: bool = typer.Option(
         False, help="Laya decides (downloads ~843MB on first use)"
     ),
+    player: str = typer.Option(
+        "router",
+        help="router: the router picks DQN or PPO; laya: Laya plays every step;"
+        " rule: the same decisions from the numbers, no model",
+    ),
+    game: str = typer.Option("vendored", help="vendored, or chrome (chrome://dino)"),
+    show: bool = typer.Option(False, help="Show the Chrome window"),
+    lead: float = typer.Option(LEAD, help="Jump window: speed x lead pixels"),
+    delay_ms: float = typer.Option(0, help="rule: think this long, like Laya"),
 ):
     """Play with the router choosing DQN or PPO (best checkpoints) at each
-    difficulty; prints each episode's game score"""
+    difficulty, or with --player laya|rule; prints each episode's game score"""
+    if player != "router":
+        _play_by_state(player, episodes, game, show, lead, delay_ms)
+        return
     classifier = None
     if laya:
         typer.echo("Loading Laya...")
@@ -212,6 +227,33 @@ def play(
     typer.echo(
         f"routed: mean score {sum(scores) / len(scores):.1f} over {episodes}"
         f" episodes, {manager.switches} switches"
+    )
+
+
+def _play_by_state(
+    name: str, episodes: int, game: str, show: bool, lead: float, delay_ms: float
+) -> None:
+    players = {"laya": LayaPlayer, "rule": RulePlayer}
+    if name not in players:
+        typer.echo(f"Unknown player {name!r}; use router, laya or rule", err=True)
+        raise typer.Exit(1)
+    if name == "laya":
+        typer.echo("Loading Laya...")
+        chosen: RulePlayer = LayaPlayer(lead)
+        chosen.load()  # type: ignore[attr-defined]
+    else:
+        chosen = RulePlayer(lead, delay_ms=delay_ms)
+    chrome = ChromeGame(headless=not show, game=game)
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with LOG_PATH.open("a", encoding="utf-8") as log:
+            results = play_by_state(chrome, chosen, episodes, log, echo=typer.echo)
+    finally:
+        chrome.close()
+    scores = [r["score"] for r in results]
+    typer.echo(
+        f"{name}: mean score {sum(scores) / len(scores):.1f} over {episodes}"
+        f" episodes (max {max(scores):.0f}); decisions in {LOG_PATH.as_posix()}"
     )
 
 

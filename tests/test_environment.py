@@ -87,6 +87,9 @@ def test_random_agent_in_real_chrome():
             if terminated:
                 break
         assert terminated and reward == CRASH_REWARD
+        # the obstacle it crashed into, as the Laya player reads it
+        assert info["obstacles"][0]["type"] in ("cactus", "bird")
+        assert info["obstacles"][0]["d"] < 20
         obs, info = env.reset()
         assert not info["crashed"]
         assert info["speed"] >= 6  # the game's starting SPEED
