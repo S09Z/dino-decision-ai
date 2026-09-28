@@ -57,6 +57,26 @@ def test_resume_continues_an_interrupted_run():
         assert [row[0] for row in training] == [100, 200, 300]
 
 
+def test_speed_after_resume_counts_only_the_new_steps(monkeypatch):
+    from types import SimpleNamespace
+
+    from src.training import callbacks
+
+    ticks = iter(range(0, 10_000, 10))  # every clock read is 10s later
+    monkeypatch.setattr(
+        callbacks, "time", SimpleNamespace(perf_counter=lambda: next(ticks))
+    )
+    args = ["train", "--checkpoint-every", "100", "--no-progress-bar"]
+    runner.invoke(cli.app, args + ["--steps", "200"])
+
+    runner.invoke(cli.app, args + ["--steps", "300", "--resume"])
+
+    with MetricsDB() as db:
+        speeds = db.conn.execute("SELECT step, steps_per_s FROM performance")
+        # 100 steps per 10s every time; the bug counted all 300 steps since 0
+        assert [tuple(row) for row in speeds] == [(100, 10.0), (200, 10.0), (300, 10.0)]
+
+
 def test_resume_ppo(small_ppo):
     args = ["train", "--agent", "ppo", "--checkpoint-every", "32"]
     runner.invoke(cli.app, args + ["--steps", "32"])
