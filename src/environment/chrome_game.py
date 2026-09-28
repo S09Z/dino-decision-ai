@@ -1,6 +1,7 @@
 """Drive the Chrome Dinosaur game in real Chrome through Playwright"""
 
 from pathlib import Path
+from typing import Optional, Sequence
 
 import numpy as np
 from playwright.sync_api import Route, sync_playwright
@@ -10,9 +11,10 @@ GAME_DIR = Path(__file__).parent / "game"
 # sprites cross-origin and block reading canvas pixels. Nothing hits the network.
 GAME_ORIGIN = "http://dino.local"
 
-# Downscale the game canvas to a size x size grayscale frame inside the page,
-# so only size*size values cross the Playwright bridge per frame.
-_FRAME_JS = """(size) => {
+# Downscale the game canvas (or its `crop` rectangle [x, y, width, height]) to
+# a size x size grayscale frame inside the page, so only size*size values
+# cross the Playwright bridge per frame.
+_FRAME_JS = """([size, crop]) => {
   if (!window.__frame) {
     window.__frame = document.createElement('canvas');
     window.__frame.width = size;
@@ -21,7 +23,9 @@ _FRAME_JS = """(size) => {
   const ctx = window.__frame.getContext('2d', {willReadFrequently: true});
   ctx.fillStyle = '#fff';  // game canvas is transparent; page background is white
   ctx.fillRect(0, 0, size, size);
-  ctx.drawImage(Runner.instance_.canvas, 0, 0, size, size);
+  const canvas = Runner.instance_.canvas;
+  const [x, y, w, h] = crop || [0, 0, canvas.width, canvas.height];
+  ctx.drawImage(canvas, x, y, w, h, 0, 0, size, size);
   const rgba = ctx.getImageData(0, 0, size, size).data;
   const gray = new Array(size * size);
   for (let i = 0; i < gray.length; i++) {
@@ -58,10 +62,18 @@ class ChromeGame:
     """One Chrome instance running the dino game.
 
     Actions: 0 = nothing, 1 = jump, 2 = duck (held until another action).
+    `crop` ([x, y, width, height] of the 600x150 canvas) keeps only that part
+    of the screen in frames.
     """
 
-    def __init__(self, headless: bool = True, frame_size: int = 84):
+    def __init__(
+        self,
+        headless: bool = True,
+        frame_size: int = 84,
+        crop: Optional[Sequence[int]] = None,
+    ):
         self.frame_size = frame_size
+        self.crop = list(crop) if crop else None
         self._ducking = False
         self._playwright = sync_playwright().start()
         # channel="chrome" uses the installed Google Chrome; no browser download
@@ -120,7 +132,7 @@ class ChromeGame:
 
     def frame(self) -> np.ndarray:
         """Current screen as a (frame_size, frame_size, 1) uint8 grayscale image."""
-        gray = self._page.evaluate(_FRAME_JS, self.frame_size)
+        gray = self._page.evaluate(_FRAME_JS, [self.frame_size, self.crop])
         return np.array(gray, dtype=np.uint8).reshape(
             self.frame_size, self.frame_size, 1
         )

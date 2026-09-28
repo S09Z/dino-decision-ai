@@ -109,3 +109,20 @@ def test_pause_before_reset_is_a_no_op():
 
     env.pause()
     env.resume()  # no Chrome launched
+
+
+def test_two_actions_drop_duck():
+    env = ChromeDinoEnv(step_seconds=0, game=FakeGame(), n_actions=2)
+
+    assert env.action_space.n == 2
+    check_env(env, skip_render_check=True)
+
+
+def test_make_dino_env_passes_env_options():
+    from src.training.envs import make_dino_env
+
+    env = make_dino_env(game=FakeGame(), n_actions=2, crop=(0, 0, 300, 150))
+
+    assert env.action_space.n == 2
+    assert env.get_attr("crop") == [(0, 0, 300, 150)]
+    env.close()

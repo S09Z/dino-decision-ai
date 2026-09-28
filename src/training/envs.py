@@ -9,12 +9,14 @@ from src.environment.dino_env import ChromeDinoEnv
 
 
 def make_dino_env(
-    n_stack: int = 4, render_mode: Optional[str] = None, game=None
+    n_stack: int = 4, render_mode: Optional[str] = None, game=None, **env_options
 ) -> VecEnv:
     """One ChromeDinoEnv (Monitor-wrapped for episode stats) stacking the last
     `n_stack` frames into (84, 84, n_stack) observations; `game` replaces
-    Chrome (used by tests)"""
+    Chrome (used by tests); `env_options` (e.g. n_actions, crop) go to
+    ChromeDinoEnv"""
     kwargs = {} if game is None else {"step_seconds": 0, "game": game}
+    kwargs.update(env_options)
     env = make_vec_env(
         lambda: ChromeDinoEnv(render_mode=render_mode, **kwargs), n_envs=1
     )

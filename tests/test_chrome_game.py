@@ -27,10 +27,12 @@ class FakePage:
     def __init__(self, size):
         self.keyboard = FakeKeyboard()
         self.scripts = []
+        self.args = []
         self.frame = list(range(size * size))
 
     def evaluate(self, script, *args):
         self.scripts.append(script)
+        self.args.append(args)
         return self.frame if args else {"crashed": False}
 
     def wait_for_function(self, script):
@@ -42,6 +44,7 @@ def game():
     """ChromeGame with a fake page instead of launching Chrome"""
     game = ChromeGame.__new__(ChromeGame)
     game.frame_size = 4
+    game.crop = None
     game._ducking = False
     game._started = False
     game._paused = False
@@ -113,3 +116,11 @@ def test_frame_is_grayscale_uint8_of_frame_size(game):
     assert frame.shape == (4, 4, 1)
     assert frame.dtype == np.uint8
     assert frame[0, 1, 0] == 1  # row-major, as the page returns pixels
+
+
+def test_frame_crop_is_passed_to_the_page(game):
+    game.frame()
+    game.crop = [0, 0, 300, 150]
+    game.frame()
+
+    assert game._page.args == [([4, None],), ([4, [0, 0, 300, 150]],)]
