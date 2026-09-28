@@ -110,18 +110,71 @@ def test_metrics_history_rejects_unknown_tables(client):
     assert response.status_code == 400
 
 
-def test_websocket_sends_a_snapshot_then_each_change(client, paths):
+def test_websocket_snapshot_has_status_latest_and_history(client, paths):
+    db_path, _ = paths
+    add_episodes(db_path, "dqn", [-90.0, -80.0])
+    with MetricsDB(db_path) as db:
+        db.add_routing("dqn", 0.7, difficulty="EASY", source="heuristic")
+
+    with client.websocket_connect("/ws") as ws:
+        snapshot = ws.receive_json()
+
+    assert snapshot["type"] == "snapshot"
+    assert snapshot["status"]["agents"]["dqn"]["state"] == "training"
+    assert snapshot["latest"]["agents"]["dqn"]["episodes"] == 2
+    assert [r["reward"] for r in snapshot["history"]["episodes"]] == [-90.0, -80.0]
+    assert snapshot["history"]["routing"][0]["agent"] == "dqn"
+
+
+def test_websocket_streams_only_new_rows(client, paths):
     db_path, _ = paths
     add_episodes(db_path, "dqn", [-90.0])
 
     with client.websocket_connect("/ws") as ws:
-        first = ws.receive_json()
-        add_episodes(db_path, "ppo", [-70.0])
-        second = ws.receive_json()
+        ws.receive_json()  # snapshot
+        with MetricsDB(db_path) as db:
+            db.add_episode("ppo", 1, -70.0, 30)
+            db.add_routing("ppo", 0.9, difficulty="EASY", source="laya")
+        messages = [ws.receive_json() for _ in range(2)]
 
-    assert first["agents"]["dqn"]["episodes"] == 1
-    assert first["agents"]["ppo"]["episodes"] == 0
-    assert second["agents"]["ppo"]["episodes"] == 1
+    rows = {m["table"]: m["rows"] for m in messages}
+    assert [r["agent"] for r in rows["episodes"]] == ["ppo"]  # not dqn again
+    assert rows["routing"][0]["source"] == "laya"  # the decision log
+
+
+def test_websocket_sends_status_periodically(paths):
+    db_path, checkpoint_dir = paths
+    app = create_app(db_path, checkpoint_dir, ws_interval=0.01, ws_status_every=0.02)
+
+    with TestClient(app).websocket_connect("/ws") as ws:
+        ws.receive_json()  # snapshot
+        message = ws.receive_json()
+
+    assert message["type"] == "status"
+    assert set(message["status"]["agents"]) == {"dqn", "ppo"}
+
+
+def test_reconnecting_client_gets_a_fresh_snapshot(client, paths):
+    db_path, _ = paths
+    with client.websocket_connect("/ws") as ws:
+        assert ws.receive_json()["history"]["episodes"] == []
+    add_episodes(db_path, "dqn", [-90.0])
+
+    with client.websocket_connect("/ws") as ws:
+        again = ws.receive_json()
+
+    assert again["type"] == "snapshot"
+    assert len(again["history"]["episodes"]) == 1
+
+
+def test_dashboard_page_and_assets_are_served(client):
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "DINO DECISION AI" in page.text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/style.css").status_code == 200
+    assert client.get("/health").json() == {"status": "ok"}  # API still wins
 
 
 def test_cli_dashboard_starts_the_api(monkeypatch):
