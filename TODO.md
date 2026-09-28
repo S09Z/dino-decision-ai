@@ -85,7 +85,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 ### 2.1 DQN agent (6–8h)
 - [x] CNN architecture, replay buffer, target network, epsilon-greedy: SB3 `DQN` with `CnnPolicy` in `DQNAgent`, on `make_dino_env()` (4 stacked frames); replay buffer stores each frame once to halve RAM
 - [x] Training loop with the plan's hyperparameters (`DQNConfig`); `python -m src.training.smoke --agent dqn`
-- [ ] Learns measurably better than random on a short run (smoke test). Not conclusive: after 20k steps (28 min) DQN survives 74 ± 20 steps vs random 64 ± 7 (20 episodes each; reward −92.7 vs −93.7). Too short for pixel DQN; re-check with a longer run
+- [ ] Learns measurably better than random on a short run (smoke test). Not conclusive: after 20k steps (28 min) DQN survives 74 ± 20 steps vs random 64 ± 7 (20 episodes each; reward −92.7 vs −93.7). Too short for pixel DQN; re-check with a longer run 100k-step run on the Windows machine (RTX 5070, 2026-09-27/28, paused at 90k and resumed): greedy `eval --compare --episodes 20` → random 69 ± 5 steps, DQN (best, step 90k) 70 ± 9, PPO (best, step 85k) 67 ± 1, routed 82 ± 24. Still random level. In training, PPO rose to ~123 steps per episode around 65–85k, then fell back to ~65 (instability); DQN crept to 74–86 at the end. Next: round 1 of `src/training/experiment.py` (two actions, epsilon 0.01, cropped frames)
 
 ### 2.2 Profiling & benchmarking ⭐ P2 (4–5h)
 - [x] `src/profiling/`: steps/s, memory and CPU (Python + Chrome), GPU memory, function timing, `@profiler.profile`. GPU utilisation % is not available from torch on MPS
@@ -119,7 +119,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 
 ### 3.2 PPO agent (6–8h)
 - [x] Actor/critic networks, GAE, clipped loss, training loop: SB3 `PPO` with `CnnPolicy` in `PPOAgent` (shares `SB3Agent` with DQN); `PPOConfig` gains `n_steps` (2048). The game is paused during each update (~9s on MPS), otherwise the dino crashes with nobody playing (`PauseDuringUpdates`, `ChromeGame.pause/resume`)
-- [ ] Smoke test vs random baseline. Not conclusive: after 20k steps (29 min + 10 paused updates) PPO survives 80 ± 20 steps vs random 68 ± 11 (20 episodes each; reward −92.1 vs −93.3), the same picture as DQN in 2.1. Re-check with a longer run
+- [ ] Smoke test vs random baseline. Not conclusive: after 20k steps (29 min + 10 paused updates) PPO survives 80 ± 20 steps vs random 68 ± 11 (20 episodes each; reward −92.1 vs −93.3), the same picture as DQN in 2.1. Re-check with a longer run 100k-step run on the Windows machine (RTX 5070, 2026-09-27/28, paused at 90k and resumed): greedy `eval --compare --episodes 20` → random 69 ± 5 steps, DQN (best, step 90k) 70 ± 9, PPO (best, step 85k) 67 ± 1, routed 82 ± 24. Still random level. In training, PPO rose to ~123 steps per episode around 65–85k, then fell back to ~65 (instability); DQN crept to 74–86 at the end. Next: round 1 of `src/training/experiment.py` (two actions, epsilon 0.01, cropped frames)
 
 ### 3.3 Testing framework ⭐ P3 (6–8h)
 - [x] `test_environment.py`, agents (`test_dqn_agent.py`, `test_ppo_agent.py`), screen capture and input with a fake Playwright page (`test_chrome_game.py`), `test_smoke.py`. `test_routing.py` and `test_dashboard.py` come with their code (5.4, 6.x)
@@ -153,7 +153,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
   - [ ] Measure on the Windows machine: `python -m src.routing.laya_benchmark --out docs/LAYA_BENCHMARK.md` (load time, RAM, ms per decision, agreement with the heuristic), then `play --episodes 20 --laya` vs `play --episodes 20`. Keep the heuristic as the default unless Laya scores better
 - [x] 5.4 Routing tests: decisions, switching, score tracking, decision logging — 2–3h. Added: scores average only the last `window` stretches and are kept per difficulty (an agent plays where it is better), the router switches back when the leader's scores drop, keeping the same agent is not a switch, every decision (including mid-episode difficulty changes) is logged once with its difficulty, and a classifier failing mid-play falls back to the heuristic. For the exit criterion, `eval --compare` now adds a `routed` row (AgentManager choosing, same reward/length measure as the single agents; includes its explore tries)
 
-**Exit criteria:** routed agent scores ≥ the better single agent on the eval set, or the gap is documented. Measure with `dino-ai eval --compare --episodes 20` on the Windows machine after the long training run.
+**Exit criteria:** routed agent scores ≥ the better single agent on the eval set, or the gap is documented. Measure with `dino-ai eval --compare --episodes 20` on the Windows machine after the long training run. Measured after the 100k run: routed 82 ± 24 vs DQN 70 ± 9 (20 episodes each), so routed ≥ better single agent, but all three are at random level (69), so this is not yet meaningful.
 
 ---
 
