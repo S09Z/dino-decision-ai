@@ -35,7 +35,8 @@ def results():
 def test_variant_trains_under_its_own_name_and_is_evaluated(fake_setup):
     result = experiment.run("dqn-a2", steps=200, checkpoint_every=100, episodes=2)
 
-    assert fake_setup == [{"n_actions": 2}]
+    # a training env, then a one-game env for the evaluation
+    assert fake_setup == [{"n_envs": 1, "n_actions": 2}, {"n_actions": 2}]
     assert CheckpointManager().latest("dqn-a2").step == 200
     assert CheckpointManager().best("dqn") is None  # baseline untouched
     assert set(result["evaluated"]) == {"best", "latest"}

@@ -6,7 +6,7 @@ baseline agents. Afterwards its best and latest checkpoints are evaluated
 greedily and the result is appended to models/logs/experiments.jsonl.
 
 Usage:
-    python -m src.training.experiment dqn-a2 --steps 100000 [--resume]
+    python -m src.training.experiment dqn-a2 --steps 100000 [--resume] [--n-envs 4]
     python -m src.training.experiment dqn-a2 --eval-only
 """
 
@@ -65,16 +65,18 @@ def run(
     resume: bool = False,
     episodes: int = 20,
     eval_only: bool = False,
+    n_envs: int = 1,
 ) -> dict:
-    """Train variant `name` up to `steps` (unless eval_only), then evaluate its
-    best and latest checkpoints; returns and records the result"""
+    """Train variant `name` up to `steps` (unless eval_only) on `n_envs` games
+    at once, then evaluate its best and latest checkpoints on one game;
+    returns and records the result"""
     variant = VARIANTS[name]
     agent_class = AGENTS[variant.agent]
     config = replace(agent_class.default_config(), **variant.config)
     checkpoints = CheckpointManager()
-    env = make_dino_env(**variant.env)
-    try:
-        if not eval_only:
+    if not eval_only:
+        env = make_dino_env(n_envs=n_envs, **variant.env)
+        try:
             model = agent_class(env, config)
             latest = checkpoints.latest(name) if resume else None
             if latest:
@@ -90,7 +92,11 @@ def run(
                         episodes=latest.episodes if latest else 0,
                     )
                     model.train(remaining, callback=monitor)
-        evaluated = {}
+        finally:
+            env.close()
+    evaluated = {}
+    env = make_dino_env(**variant.env)  # evaluation: one game
+    try:
         for kind, checkpoint in (
             ("best", checkpoints.best(name)),
             ("latest", checkpoints.latest(name)),
@@ -131,11 +137,12 @@ def main(
     resume: bool = False,
     episodes: int = 20,
     eval_only: bool = False,
+    n_envs: int = typer.Option(1, help="Games at once while training"),
 ) -> None:
     if name not in VARIANTS:
         typer.echo(f"Unknown variant {name!r}; available: {', '.join(VARIANTS)}")
         raise typer.Exit(1)
-    result = run(name, steps, checkpoint_every, resume, episodes, eval_only)
+    result = run(name, steps, checkpoint_every, resume, episodes, eval_only, n_envs)
     for kind, row in result["evaluated"].items():
         typer.echo(
             f"{name} {kind} (step {row['step']}): length"

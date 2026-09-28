@@ -20,15 +20,29 @@ class SB3Agent:
     default_config: ClassVar[Any]
 
     def __init__(self, env, config=None, device=None):
-        """Build the model on `env` (see src.training.envs.make_dino_env)"""
+        """Build the model on `env` (see src.training.envs.make_dino_env);
+        `config` is scaled to the env's number of games (for_envs)"""
         self.env = env
-        self.config = config if config is not None else self.default_config()
+        config = config if config is not None else self.default_config()
+        self.config = self.for_envs(config, env.num_envs)
+        # what for_envs changed; load() keeps it over the checkpoint's values
+        before = asdict(config)
+        self._scaled = {
+            key: value
+            for key, value in asdict(self.config).items()
+            if before[key] != value
+        }
         self.model = self.algorithm(
             "CnnPolicy",
             env,
             device=device or LocalConfig.DEVICE,
             **asdict(self.config),
         )
+
+    @staticmethod
+    def for_envs(config, n_envs: int):
+        """`config` for `n_envs` games at once, learning the same per sample"""
+        return config
 
     @property
     def name(self) -> str:
@@ -59,12 +73,26 @@ class SB3Agent:
         self.model.save(path)
 
     def load(self, path):
-        """Load model weights and settings saved with `save`"""
-        self.model = self.algorithm.load(path, env=self.env, device=self.model.device)
+        """Load model weights and settings saved with `save`, keeping the
+        settings scaled to this env's number of games"""
+        self.model = self.algorithm.load(
+            path, env=self.env, device=self.model.device, custom_objects=self._scaled
+        )
 
     def resume(self, latest):
         """Continue an interrupted run from a CheckpointManager `Latest`: its
         weights, step count and, for DQN, its replay buffer"""
         self.load(latest.path)
         if latest.buffer:
+            fresh = self.model.replay_buffer  # sized for this env by load()
             self.model.load_replay_buffer(latest.buffer)
+            saved = self.model.replay_buffer.n_envs  # type: ignore[union-attr]
+            if saved != self.env.num_envs:
+                # a buffer is laid out per game, so it only fits the same count
+                logger.warning(
+                    "Replay buffer of %d game(s) does not fit %d; starting a new"
+                    " one (weights and step count are resumed)",
+                    saved,
+                    self.env.num_envs,
+                )
+                self.model.replay_buffer = fresh

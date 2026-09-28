@@ -20,7 +20,9 @@ runner = CliRunner()
 def fake_setup(tmp_path, monkeypatch):
     """Run in tmp_path (models/ goes there) on the fake game and CPU"""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "make_dino_env", lambda: make_dino_env(game=FakeGame(10)))
+    monkeypatch.setattr(
+        cli, "make_dino_env", lambda **kw: make_dino_env(game=FakeGame(10), **kw)
+    )
     monkeypatch.setattr(LocalConfig, "DEVICE", "cpu")
 
 
@@ -117,7 +119,9 @@ def test_training_from_scratch_says_it_overwrites_the_latest():
 
 def test_game_is_paused_while_the_latest_checkpoint_saves(monkeypatch):
     game = FakeGame(10)
-    monkeypatch.setattr(cli, "make_dino_env", lambda: make_dino_env(game=game))
+    monkeypatch.setattr(
+        cli, "make_dino_env", lambda **kw: make_dino_env(game=game, **kw)
+    )
     paused_while_saving = []
     save_latest = CheckpointManager.save_latest
 

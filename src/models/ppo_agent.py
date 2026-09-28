@@ -1,5 +1,7 @@
 """Proximal Policy Optimization (PPO) Agent"""
 
+from dataclasses import replace
+
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList
 
@@ -17,6 +19,11 @@ class PPOAgent(SB3Agent):
 
     algorithm = PPO
     default_config = PPOConfig
+
+    @staticmethod
+    def for_envs(config, n_envs: int):
+        """Keep n_steps samples per update, split across the games"""
+        return replace(config, n_steps=config.n_steps // n_envs)
 
     def train(self, total_steps, callback=None, progress_bar=False):
         """Like SB3Agent.train, but the game is paused during each update

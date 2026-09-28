@@ -14,7 +14,7 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
 | 2 Core RL + monitoring | 12 | 13 | Exit criteria met; only 2.1's "better than random" check is open (needs a longer run) |
 | 3 Caching & testing | 4 | 5 | Exit criteria met; 3.1 dropped (frames never repeat); only 3.2's "better than random" check is open |
-| 4 Optimization & comparison | 3 | 5 | 4.1, 4.2 and 4.5 (resume) done; 4.3/4.4 need long runs on the Windows machine |
+| 4 Optimization & comparison | 4 | 6 | 4.1, 4.2, 4.5 (resume) and 4.6 (`--n-envs`, 3.7x faster) done; 4.3/4.4 need long runs on the Windows machine |
 | 5 Multi-agent routing | 3 | 5 | 5.1, 5.2 and 5.4 done; 5.3 Laya code done, measuring it on Windows; 5.5 Laya as a player working (mean score 3872), head-height birds open |
 | 6–8 | 4 | 11 | Phase 6 done (exit criteria met); Phases 7–8 not started |
 
@@ -139,6 +139,7 @@ Measured first: over 1,000 real-Chrome steps, 0% of frames and 0% of 4-frame sta
 - [x] 4.5 Resume after a crash or power cut: every checkpoint also overwrites `models/checkpoints/<agent>_latest.zip` (plus DQN's replay buffer, `<agent>_latest_buffer.pkl`, ~1.4GB) and `<agent>_latest.json` (step, episodes); files are written under a temporary name and renamed, so a power cut mid-save keeps the previous one. The game is paused while saving. `train --resume` (also with `--all --parallel`) continues from it: same step count and epsilon schedule, episode numbers carry on; `--steps` is the total. `clean` keeps the latest checkpoint
 - [ ] 4.3 DQN vs PPO: 250K steps each, compare metrics, write up findings — 4–6h
 - [ ] 4.4 Hyperparameter tuning (lr, entropy coef, GAE λ), ablations, document — 8–10h
+- [x] 4.6 Several games per agent (`--n-envs N` on `train` and `python -m src.training.experiment`): each game is a Chrome in its own process (`SubprocVecEnv`), so the 50ms real-time steps overlap. DQN takes N gradient steps per update and PPO splits `n_steps` across the games, so learning per sample stays the same; those settings survive loading a checkpoint. Checkpoints come every `checkpoint_every` steps as a distance (the count moves in steps of N). A DQN replay buffer resumes only into the same N (otherwise a new one starts, with a warning). Measured: DQN on 4 games 46 steps/s vs 12.4 on one (3.7x), with round 2 training alongside, so 250k steps take ~1.5h instead of ~5.6h
 
 **Exit criteria:** comparison report committed; best hyperparameters recorded in configs.
 

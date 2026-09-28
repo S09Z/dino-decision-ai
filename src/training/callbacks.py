@@ -30,7 +30,7 @@ class PauseDuringUpdates(BaseCallback):
 
 class TrainingMonitor(BaseCallback):
     """Writes every finished episode to the DB. Every `checkpoint_every` steps
-    and at the end of training it also records loss, learning rate and
+    (counted over all games) and at the end of training it also records loss, learning rate and
     performance, saves a checkpoint scored by the mean reward of the last
     `window` episodes (CheckpointManager keeps only the best) and overwrites
     the latest checkpoint, which `train --resume` continues from. `episodes`
@@ -69,7 +69,10 @@ class TrainingMonitor(BaseCallback):
                 self.db.add_episode(
                     self.name, self.episodes, float(episode["r"]), int(episode["l"])
                 )
-        if self.num_timesteps % self.checkpoint_every == 0:
+        # a distance, not a multiple: with several games the count moves in
+        # steps of n_envs and would land on a multiple only every
+        # lcm(n_envs, checkpoint_every) steps
+        if self.num_timesteps - self._last_step >= self.checkpoint_every:
             self._checkpoint()
         return True
 
