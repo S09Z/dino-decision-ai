@@ -8,26 +8,31 @@ greedily and the result is appended to models/logs/experiments.jsonl.
 Usage:
     python -m src.training.experiment dqn-a2 --steps 100000 [--resume] [--n-envs 4]
     python -m src.training.experiment dqn-a2 --eval-only
-    python -m src.training.experiment dqn-a2 --watch [--checkpoint latest]
+    python -m src.training.experiment dqn-a2 --watch [--checkpoint latest|eval]
+    python -m src.training.experiment dqn-a2-ls4 --eval-every 50000  # lockstep
+    python -m src.training.experiment dqn-a2@2 --steps 100000  # a repeat run
 """
 
 import json
 import time
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 import torch
 import typer
+from playwright.sync_api import Error as PlaywrightError
+from stable_baselines3.common.callbacks import CallbackList
 
-from src.evaluation.evaluate import evaluate
+from src.evaluation.evaluate import evaluate_games, projected_score
 from src.models import AGENTS
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 from src.routing.laya_player import ACTIONS, describe, threat
-from src.training.callbacks import TrainingMonitor
+from src.training.callbacks import EvalMonitor, TrainingMonitor
 from src.training.envs import make_dino_env
 
 RESULTS = Path("models") / "logs" / "experiments.jsonl"  # git-ignored
@@ -42,6 +47,9 @@ class Variant:
     agent: str  # key of AGENTS
     env: dict[str, Any] = field(default_factory=dict)  # ChromeDinoEnv options
     config: dict[str, Any] = field(default_factory=dict)  # config overrides
+    # ChromeDinoEnv options for training only: evaluation and --watch play
+    # the normal game, so variants compare on the same one
+    train: dict[str, Any] = field(default_factory=dict)
 
 
 VARIANTS = {
@@ -73,6 +81,46 @@ VARIANTS.update(
         for name, variant in list(VARIANTS.items())
     }
 )
+# ...and every training game starts at a random speed (6-13) instead of 6:
+# agents died around speed 9, just after birds appear (8.5), so they had
+# hardly practised on birds (half their deaths: jumping into a high bird)
+VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-speed"] = replace(
+    VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}"], train={"start_speed": (6, 13)}
+)
+# ...but only half of them: round 3's -speed agent lasted 1,700-24,000 steps
+# in 9 of 30 games yet died at speed 6-7 in the rest, having practised the
+# slow start about 7 times less than a normal agent
+VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix"] = replace(
+    VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}"],
+    train={"start_speed": (6, 13), "start_speed_share": 0.5},
+)
+# ...and every key press costs 0.05 (half a step's reward): -mix@2 jumped in
+# 26% of steps with nothing ahead, its values for jump and nothing 0.2 apart
+VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix-cost"] = replace(
+    VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix"],
+    train={
+        **VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix"].train,
+        "press_cost": 0.05,
+    },
+)
+# ...with duck back: pressing down in the air drops the dino fast, so at
+# speed ~12 it can land before a high bird (-mix's main cause of death)
+VARIANTS[f"dqn-a3-eps-crop-ls{LOCKSTEP_FRAMES}-mix"] = replace(
+    VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix"],
+    env={**VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix"].env, "n_actions": 3},
+)
+# ...and a key press cost too: without it, the three values were ~0.1 apart
+# far from obstacles and the greedy agent jumped at almost every step
+VARIANTS[f"dqn-a3-eps-crop-ls{LOCKSTEP_FRAMES}-mix-cost"] = replace(
+    VARIANTS[f"dqn-a3-eps-crop-ls{LOCKSTEP_FRAMES}-mix"],
+    train=VARIANTS[f"dqn-a2-eps-crop-ls{LOCKSTEP_FRAMES}-mix-cost"].train,
+)
+
+
+def variant_of(name: str) -> Variant:
+    """A variant by name; "<variant>@<tag>" (e.g. dqn-a2@2) repeats it under
+    that name, with its own checkpoints and results"""
+    return VARIANTS[name.split("@")[0]]
 
 
 def run(
@@ -83,16 +131,27 @@ def run(
     episodes: int = 20,
     eval_only: bool = False,
     n_envs: int = 1,
+    eval_every: int = 0,
+    max_length: Optional[int] = None,
 ) -> dict:
     """Train variant `name` up to `steps` (unless eval_only) on `n_envs` games
-    at once, then evaluate its best and latest checkpoints on one game;
-    returns and records the result"""
-    variant = VARIANTS[name]
+    at once, then evaluate its best and latest checkpoints on one game
+    (games stopped at `max_length` steps; projected_score estimates the
+    rest); returns and records the result. `eval_every` > 0 (lockstep
+    variants) also evaluates every that many steps while training
+    (EvalMonitor); the checkpoint those picked ("eval_best") is then
+    evaluated instead of the best by training reward, which misled in
+    every round that had both (e.g. 526 steps vs 10,095)."""
+    variant = variant_of(name)
+    if eval_every and "frames_per_step" not in variant.env:
+        raise ValueError("eval_every needs a lockstep variant")
     agent_class = AGENTS[variant.agent]
     config = replace(agent_class.default_config(), **variant.config)
     checkpoints = CheckpointManager()
+    history: list = []
     if not eval_only:
-        env = make_dino_env(n_envs=n_envs, **variant.env)
+        env = make_dino_env(n_envs=n_envs, **variant.env, **variant.train)
+        eval_env = make_dino_env(**variant.env) if eval_every else None
         try:
             model = agent_class(env, config)
             latest = checkpoints.latest(name) if resume else None
@@ -101,34 +160,58 @@ def run(
             remaining = steps - model.model.num_timesteps
             if remaining > 0:
                 with MetricsDB() as db:
-                    monitor = TrainingMonitor(
-                        name,
-                        db,
-                        checkpoints,
-                        checkpoint_every,
-                        episodes=latest.episodes if latest else 0,
-                    )
-                    model.train(remaining, callback=monitor)
+                    callbacks: list = [
+                        TrainingMonitor(
+                            name,
+                            db,
+                            checkpoints,
+                            checkpoint_every,
+                            episodes=latest.episodes if latest else 0,
+                        )
+                    ]
+                    if eval_env is not None:
+                        callbacks.append(
+                            EvalMonitor(name, eval_env, checkpoints, eval_every)
+                        )
+                    model.train(remaining, callback=CallbackList(callbacks))
+                    if eval_env is not None:
+                        history = callbacks[1].history
         finally:
             env.close()
+            if eval_env is not None:
+                eval_env.close()
     evaluated = {}
+    eval_best = checkpoints.best(f"{name}-eval")
     env = make_dino_env(**variant.env)  # evaluation: one game
     try:
         for kind, checkpoint in (
-            ("best", checkpoints.best(name)),
+            ("best", None if eval_best else checkpoints.best(name)),
             ("latest", checkpoints.latest(name)),
+            ("eval_best", eval_best),
         ):
             if checkpoint is None:
                 continue
             model = agent_class(env, config)
             model.load(checkpoint.path)
-            rewards, lengths = evaluate(model.model, env, episodes)
+            games = evaluate_games(model.model, env, episodes, max_length)
+            lengths = [game["length"] for game in games]
             evaluated[kind] = {
                 "step": checkpoint.step,
                 "mean_length": float(np.mean(lengths)),
                 "std_length": float(np.std(lengths)),
+                # the mean hides games that split into short and very long
+                "median_length": float(np.median(lengths)),
+                "over_1000": sum(length > 1000 for length in lengths),
                 "max_length": int(np.max(lengths)),
-                "mean_reward": float(np.mean(rewards)),
+                "mean_reward": float(np.mean([game["reward"] for game in games])),
+                "mean_score": float(np.mean([game["score"] for game in games])),
+                # without the max_length cap (None: no death at top speed yet)
+                "projected_score": projected_score(games),
+                # what ended each game: {"cactus": 12, "bird at head height": 8}
+                "hits": dict(Counter(game["hit"] for game in games)),
+                "died_in_air": sum(game["in_air"] for game in games),
+                "death_speed": float(np.mean([game["speed"] for game in games])),
+                "games": games,
             }
     finally:
         env.close()
@@ -137,8 +220,10 @@ def run(
         "agent": variant.agent,
         "env": variant.env,
         "config": variant.config,
+        "train": variant.train,
         "episodes": episodes,
         "evaluated": evaluated,
+        "eval_history": history,  # [(step, mean, median)] while training
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
     RESULTS.parent.mkdir(parents=True, exist_ok=True)
@@ -171,13 +256,17 @@ def watch(
     checkpoint in a visible Chrome. Each game goes to the metrics DB as
     `<name>-watch`, and so does every decision (the value of each action and
     the one taken), so the dashboard shows it live. Returns their lengths."""
-    variant = VARIANTS[name]
+    variant = variant_of(name)
     agent_class = AGENTS[variant.agent]
     config = replace(agent_class.default_config(), **variant.config)
     checkpoints = CheckpointManager()
-    saved = (
-        checkpoints.latest(name) if checkpoint == "latest" else checkpoints.best(name)
-    )
+    saved: Any
+    if checkpoint == "latest":
+        saved = checkpoints.latest(name)
+    elif checkpoint == "eval":
+        saved = checkpoints.best(f"{name}-eval")  # picked by EvalMonitor
+    else:
+        saved = checkpoints.best(name)
     if saved is None:
         raise FileNotFoundError(f"No {checkpoint} checkpoint for {name}")
     env = make_dino_env(render_mode="human", **variant.env)
@@ -215,7 +304,11 @@ def watch(
                         ms=ms,
                     )
                 time.sleep(max(0.0, step_seconds - (time.perf_counter() - decided)))
-                obs, _, dones, infos = env.step(action)
+                try:
+                    obs, _, dones, infos = env.step(action)
+                except PlaywrightError:  # the watcher closed the window
+                    echo("Chrome was closed: stopped")
+                    break
                 state = infos[0]
                 if dones[0]:
                     state, start = None, time.perf_counter()
@@ -247,9 +340,15 @@ def main(
     watch_play: bool = typer.Option(
         False, "--watch", help="Play --episodes games in a visible Chrome"
     ),
-    checkpoint: str = typer.Option("best", help="--watch: best or latest"),
+    checkpoint: str = typer.Option("best", help="--watch: best, latest or eval"),
+    eval_every: int = typer.Option(
+        0, help="Lockstep: also evaluate every N steps while training"
+    ),
+    max_length: int = typer.Option(
+        0, help="Stop evaluation games after N steps (0: never)"
+    ),
 ) -> None:
-    if name not in VARIANTS:
+    if name.split("@")[0] not in VARIANTS:
         typer.echo(f"Unknown variant {name!r}; available: {', '.join(VARIANTS)}")
         raise typer.Exit(1)
     if watch_play:
@@ -258,14 +357,39 @@ def main(
         except FileNotFoundError as error:
             typer.echo(f"{error}; train it first", err=True)
             raise typer.Exit(1)
-        typer.echo(f"mean {np.mean(lengths):.0f} steps over {len(lengths)} games")
+        if lengths:  # none if the window was closed during the first game
+            typer.echo(f"mean {np.mean(lengths):.0f} steps over {len(lengths)} games")
         return
-    result = run(name, steps, checkpoint_every, resume, episodes, eval_only, n_envs)
+    result = run(
+        name,
+        steps,
+        checkpoint_every,
+        resume,
+        episodes,
+        eval_only,
+        n_envs,
+        eval_every,
+        max_length or None,
+    )
+    for step, mean, median in result["eval_history"]:
+        typer.echo(f"while training, step {step}: mean {mean:.0f}, median {median:.0f}")
     for kind, row in result["evaluated"].items():
         typer.echo(
             f"{name} {kind} (step {row['step']}): length"
             f" {row['mean_length']:.0f} ± {row['std_length']:.0f} steps"
-            f" (max {row['max_length']}), reward {row['mean_reward']:.1f}"
+            f" (median {row['median_length']:.0f}, max {row['max_length']},"
+            f" {row['over_1000']} over 1000), reward {row['mean_reward']:.1f},"
+            f" score {row['mean_score']:.0f}"
+        )
+        projected = row["projected_score"]
+        typer.echo(
+            "  projected score without a length cap: "
+            + (f"{projected:.0f}" if projected else "no death at top speed yet")
+        )
+        hits = ", ".join(f"{name} {n}" for name, n in row["hits"].items())
+        typer.echo(
+            f"  died on: {hits}; {row['died_in_air']} in the air;"
+            f" mean speed {row['death_speed']:.1f}"
         )
 
 

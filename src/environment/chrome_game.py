@@ -120,6 +120,13 @@ _CLOCK_JS = """(() => {
 })();"""
 
 
+_START_CLOCK_JS = """() => {
+  const t = Runner.instance_.tRex;
+  t.xPos = t.config.START_X_POS;
+  __clock.start();
+}"""
+
+
 def _serve_game_file(route: Route) -> None:
     url = route.request.url
     if not url.startswith(GAME_ORIGIN + "/"):
@@ -197,14 +204,24 @@ class ChromeGame:
             f"(() => {{ const r = {RUNNER}; return !!r && r.playing && !r.crashed; }})()"
         )
         if self.lockstep and not self._clock_started:
-            # the first run's intro is a real-time CSS animation
-            self._page.wait_for_function("Runner.instance_.activated")
-            self._page.evaluate("() => __clock.start()")
+            # The first run's intro is a real-time CSS animation (0.4s): the
+            # T-Rex walks in 1px per game frame until it ends, so how far it
+            # gets would depend on how fast steps come (fast steps: all the
+            # way to START_X_POS, 50; watch-paced or slowed by a busy machine:
+            # ~24), and it stays there all session. Wait for the intro to end,
+            # then put it at START_X_POS, so it is always in the same place.
+            self._page.wait_for_function("!Runner.instance_.playingIntro")
+            self._page.evaluate(_START_CLOCK_JS)
             self._clock_started = True
 
     def advance(self, frames: int) -> None:
         """Lockstep: run the game `frames` frames (1/60s each) and stop."""
         self._page.evaluate("(n) => __clock.advance(n)", frames)
+
+    def set_speed(self, speed: float) -> None:
+        """Run at `speed` from now on (6 at the start, up to 13); it keeps
+        growing from there as usual. restart() sets it back to 6."""
+        self._page.evaluate(f"(s) => {RUNNER}.setSpeed(s)", speed)
 
     def act(self, action: int) -> None:
         if action == 2:
@@ -242,5 +259,8 @@ class ChromeGame:
         )
 
     def close(self) -> None:
-        self._browser.close()
+        try:
+            self._browser.close()
+        except PlaywrightError:
+            pass  # a visible window the user already closed
         self._playwright.stop()

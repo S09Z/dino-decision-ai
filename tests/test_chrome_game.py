@@ -132,6 +132,13 @@ def test_unknown_game_is_rejected_before_launching_chrome():
         ChromeGame(game="dino.example")
 
 
+def test_set_speed_calls_the_games_own_set_speed(game):
+    game.set_speed(9.5)
+
+    assert game._page.scripts == [f"(s) => {RUNNER}.setSpeed(s)"]
+    assert game._page.args == [(9.5,)]
+
+
 def test_lockstep_needs_the_vendored_game():
     with pytest.raises(ValueError, match="vendored"):
         ChromeGame(game="chrome", lockstep=True)
@@ -144,7 +151,9 @@ def test_lockstep_clock_starts_after_the_intro_then_advances_on_request(game):
     game.restart()  # started once only
     game.advance(4)
 
-    assert game._page.waited.count("Runner.instance_.activated") == 1
-    assert game._page.scripts.count("() => __clock.start()") == 1
+    # after the whole intro, with the T-Rex put where the intro walks it to
+    assert game._page.waited.count("!Runner.instance_.playingIntro") == 1
+    starts = [s for s in game._page.scripts if "__clock.start()" in s]
+    assert len(starts) == 1 and "t.xPos = t.config.START_X_POS" in starts[0]
     assert game._page.scripts[-1] == "(n) => __clock.advance(n)"
     assert game._page.args[-1] == (4,)

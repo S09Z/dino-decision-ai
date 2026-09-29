@@ -16,6 +16,7 @@ class FakeGame:
         self.closed = False
         self.paused = False
         self.frames = 0  # lockstep frames run
+        self.speeds = []  # set_speed() calls
 
     def restart(self):
         self.actions = []
@@ -32,6 +33,9 @@ class FakeGame:
 
     def advance(self, frames):
         self.frames += frames
+
+    def set_speed(self, speed):
+        self.speeds.append(speed)
 
     def state(self):
         return {
@@ -151,3 +155,46 @@ def test_lockstep_steps_advance_the_game_instead_of_waiting():
     env.step(1)
 
     assert game.frames == 8
+
+
+def test_start_speed_starts_each_run_at_a_random_speed_in_range():
+    game = FakeGame()
+    env = ChromeDinoEnv(step_seconds=0, game=game, start_speed=(6, 13))
+
+    env.reset(seed=0)
+    for _ in range(20):
+        env.reset()
+
+    assert len(game.speeds) == 21
+    assert all(6 <= speed <= 13 for speed in game.speeds)
+    assert len(set(game.speeds)) == 21  # a new speed each run
+
+
+def test_start_speed_share_leaves_the_other_runs_at_the_normal_start():
+    game = FakeGame()
+    env = ChromeDinoEnv(
+        step_seconds=0, game=game, start_speed=(6, 13), start_speed_share=0.5
+    )
+
+    env.reset(seed=0)
+    for _ in range(99):
+        env.reset()
+
+    assert 30 < len(game.speeds) < 70  # about half of 100 runs
+
+
+def test_press_cost_comes_off_steps_that_press_a_key():
+    env = ChromeDinoEnv(step_seconds=0, game=FakeGame(crash_after=10), press_cost=0.05)
+    env.reset()
+
+    rewards = [env.step(action)[1] for action in (0, 1, 2)]
+
+    pressed = ALIVE_REWARD - 0.05  # jump and duck both press a key
+    assert rewards == pytest.approx([ALIVE_REWARD, pressed, pressed])
+
+
+def test_runs_start_at_the_games_own_speed_by_default():
+    game = FakeGame()
+    ChromeDinoEnv(step_seconds=0, game=game).reset()
+
+    assert game.speeds == []
