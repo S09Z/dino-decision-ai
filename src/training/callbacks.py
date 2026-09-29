@@ -6,6 +6,7 @@ from collections import deque
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 
+from src.evaluation.evaluate import evaluate_games
 from src.models_mgmt.checkpoint_manager import CheckpointManager
 from src.monitoring.local_db import MetricsDB
 from src.profiling.profiler import resource_usage
@@ -26,6 +27,56 @@ class PauseDuringUpdates(BaseCallback):
 
     def _on_step(self) -> bool:
         return True
+
+
+class EvalMonitor(BaseCallback):
+    """Every `eval_every` steps, plays `episodes` greedy games on `eval_env`
+    (one normal game, stopped at `max_length` steps) and saves the model as
+    checkpoint `<name>-eval`, scored by their mean length: training rewards
+    can mislead (games that start fast are shorter), this cannot. Lockstep
+    only: real-time training games would run on unattended meanwhile.
+    `history` holds (step, mean, median) per evaluation."""
+
+    def __init__(
+        self,
+        name: str,
+        eval_env,
+        checkpoints: CheckpointManager,
+        eval_every: int = 50_000,
+        episodes: int = 10,
+        max_length: int = 5_000,  # 3,000 was reached by most games of -mix@2
+    ):
+        super().__init__()
+        self.name = f"{name}-eval"
+        self.eval_env = eval_env
+        self.checkpoints = checkpoints
+        self.eval_every = eval_every
+        self.episodes = episodes
+        self.max_length = max_length
+        self.history: list[tuple[int, float, float]] = []
+        self._last_step = 0
+
+    def _on_training_start(self) -> None:
+        self._last_step = self.num_timesteps
+
+    def _on_step(self) -> bool:
+        if self.num_timesteps - self._last_step >= self.eval_every:
+            self._evaluate()
+        return True
+
+    def _on_training_end(self) -> None:
+        if self.num_timesteps != self._last_step:
+            self._evaluate()
+
+    def _evaluate(self) -> None:
+        games = evaluate_games(
+            self.model, self.eval_env, self.episodes, self.max_length
+        )
+        lengths = [game["length"] for game in games]
+        mean = float(np.mean(lengths))
+        self.history.append((self.num_timesteps, mean, float(np.median(lengths))))
+        self.checkpoints.save(self.model, self.name, self.num_timesteps, mean)
+        self._last_step = self.num_timesteps
 
 
 class TrainingMonitor(BaseCallback):

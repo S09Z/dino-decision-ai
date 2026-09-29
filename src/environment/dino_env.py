@@ -24,6 +24,15 @@ class ChromeDinoEnv(gym.Env):
     game frames (1/60s each) as fast as Chrome computes them, and the game
     waits between steps.
 
+    `start_speed=(low, high)` starts each run at a random speed in that range
+    instead of 6, so training reaches fast games (birds from 8.5) without
+    first surviving the slow part. `start_speed_share` is the share of runs
+    that do; the rest start at 6 as usual (so the slow part is practised too).
+
+    `press_cost` is taken off the reward of every step that presses a key:
+    otherwise jumping with nothing ahead costs nothing, the agent's values
+    for "jump" and "nothing" differ only by noise there, and it hops at random.
+
     `step_seconds` is 0.065 so a real-time step still lasts ~72ms, as it did
     when frames took 15ms to read (now 1.6ms): agents trained then collapse
     at shorter steps (round 2's best: 112 steps at 0.05 vs 1782 at 0.065).
@@ -39,6 +48,9 @@ class ChromeDinoEnv(gym.Env):
         n_actions=3,
         crop=None,
         frames_per_step=None,
+        start_speed=None,
+        start_speed_share=1.0,
+        press_cost=0.0,
     ):
         """Initialize environment; `game` replaces Chrome (used by tests)"""
         super().__init__()
@@ -46,6 +58,9 @@ class ChromeDinoEnv(gym.Env):
         self.step_seconds = step_seconds
         self.crop = crop
         self.frames_per_step = frames_per_step
+        self.start_speed = start_speed
+        self.start_speed_share = start_speed_share
+        self.press_cost = press_cost
         self._game = game
 
         # Action space: 0=nothing, 1=jump, 2=duck (n_actions=2: no duck)
@@ -67,6 +82,11 @@ class ChromeDinoEnv(gym.Env):
                 lockstep=self.frames_per_step is not None,
             )
         self._game.restart()
+        if (
+            self.start_speed is not None
+            and self.np_random.random() < self.start_speed_share
+        ):
+            self._game.set_speed(float(self.np_random.uniform(*self.start_speed)))
         return self._game.frame(), self._game.state()
 
     def step(self, action):
@@ -79,6 +99,8 @@ class ChromeDinoEnv(gym.Env):
         state = self._game.state()
         terminated = bool(state["crashed"])
         reward = CRASH_REWARD if terminated else ALIVE_REWARD
+        if int(action) != 0:
+            reward -= self.press_cost
         return self._game.frame(), reward, terminated, False, state
 
     def pause(self):
