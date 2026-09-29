@@ -259,7 +259,7 @@ function renderLive() {
     $('liveBars').innerHTML = labels.map((l) => {
         const v = last.scores[l];
         const width = isQ ? 15 + 85 * ((v - lo) / ((hi - lo) || 1)) : v * 100;
-        return `<div class="bar${l === last.answer ? ' chosen' : ''}">
+        return `<div class="act-bar${l === last.answer ? ' chosen' : ''}">
             <span class="name">${esc(l.toUpperCase())}</span>
             <span class="track"><span class="fill" style="width:${width.toFixed(1)}%;background:${ACTION_COLORS[l] || '#E8A15A'}"></span>
             ${last.cut != null ? `<span class="cut" style="left:${last.cut * 100}%"></span>` : ''}</span>
