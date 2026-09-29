@@ -58,7 +58,7 @@ body {
 .link.live .dot { background: var(--lime); }
 .link.reconnecting .dot { background: var(--orange); }
 
-.stats { display: flex; flex-wrap: wrap; }
+.stats { display: flex; flex-wrap: wrap; margin-left: auto; }  /* right, even when wrapped */
 .stat { padding: 0 20px; border-left: 1px solid var(--line); }
 .stat .label, .label { font-size: 10px; letter-spacing: 0.16em; color: var(--muted); }
 .stat .value { font-size: 20px; font-weight: 500; margin-top: 4px; }
@@ -150,12 +150,12 @@ body {
 .sentence { font-size: 14px; line-height: 1.6; color: #EAF2EF; }
 .sentence .hint { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .bars { display: flex; flex-direction: column; gap: 10px; }
-.bar { display: grid; grid-template-columns: 56px minmax(0, 1fr) 64px; align-items: center; gap: 10px; font-size: 12px; }
-.bar .track { position: relative; height: 14px; background: #16201E; border-radius: 2px; }
-.bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; opacity: 0.85; }
-.bar .cut { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--red); }
-.bar.chosen .name { color: #EAF2EF; font-weight: 700; }
-.bar .num { text-align: right; color: var(--text-2); }
+.act-bar { display: grid; grid-template-columns: 56px minmax(0, 1fr) 64px; align-items: center; gap: 10px; font-size: 12px; }
+.act-bar .track { position: relative; height: 14px; background: #16201E; border-radius: 2px; }
+.act-bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; opacity: 0.85; }
+.act-bar .cut { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--red); }
+.act-bar.chosen .name { color: #EAF2EF; font-weight: 700; }
+.act-bar .num { text-align: right; color: var(--text-2); }
 .bars .note { font-size: 11px; color: var(--muted); }
 .live .output .action { font-size: 48px; }
 .live .table { max-height: 260px; }
