@@ -11,11 +11,11 @@ Hours: plan with PLAN.md's 139–182h estimate.
 | Phase | Done | Total | Status |
 |---|---|---|---|
 | 0 Decisions & plan hygiene | 9 | 11 | Done except Docker (blocked on 6.1) and `.env` loader (deferred) |
-| 1 Foundation | 19 | 22 | 1.1, 1.2, 1.3 and 1.5 done (docker_config deferred); 1.4 not started |
+| 1 Foundation | 21 | 22 | Done except docker_config (deferred to 8.2) |
 | 2–8 | 0 | 40 | Not started |
 
-**Next up:** Phase 1.4 (logging).
-**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is `claude/gpu-detector`, stacked on #3.
+**Next up:** Phase 2.1 (DQN agent).
+**Branches:** Phase 0 is draft PR [#1](https://github.com/S09Z/dino-decision-ai/pull/1) (`claude/phase-0-hygiene`); Phase 1.5 is draft PR [#2](https://github.com/S09Z/dino-decision-ai/pull/2), stacked on #1; Phase 1.2 is draft PR [#3](https://github.com/S09Z/dino-decision-ai/pull/3), stacked on #2; Phase 1.3 is draft PR [#4](https://github.com/S09Z/dino-decision-ai/pull/4), stacked on #3; Phase 1.4 is `claude/logger`, stacked on #4.
 
 ---
 
@@ -61,8 +61,8 @@ Hours: plan with PLAN.md's 139–182h estimate.
 - [x] Unit tests (`tests/test_gpu_detector.py`, torch/psutil faked)
 
 ### 1.4 Logging ⭐ P1 (2–3h)
-- [ ] `src/utils/logger.py` with `get_logger(__name__)`: rich console, file logging, rotation, structured format
-- [ ] Unit tests
+- [x] `src/utils/logger.py` with `get_logger(__name__)`: rich console, rotating file `logs/dino_ai.log` (10MB × 5), `time | level | name | message` format; stdlib `logging` + rich (loguru stays unused)
+- [x] Unit tests (`tests/test_logger.py`)
 
 ### 1.5 Environment (8–10h)
 - [x] `dino_env.py`: real `reset` / `step`; Discrete(3) actions; reward +0.1/step, −100 on collision
